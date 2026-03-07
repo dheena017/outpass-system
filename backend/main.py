@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, Depends, status, WebSocket, WebSocketDisconnect, Request
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session
+from sqlalchemy import func
+from sqlalchemy.orm import Session, joinedload
 from datetime import timedelta
 from config import settings
 from database import engine, get_db
@@ -469,19 +470,41 @@ async def get_active_students_locations(
     if current_user["role"] not in [UserRole.WARDEN, UserRole.ADMIN]:
         raise HTTPException(status_code=403, detail="Not authorized")
         
-    # Get all active outpasses
-    active_outpasses = db.query(OutpassRequest).filter(OutpassRequest.status == OutpassStatus.ACTIVE).all()
+    # Get all active outpasses with student and user data joined to avoid N+1
+    active_outpasses = db.query(OutpassRequest).filter(
+        OutpassRequest.status == OutpassStatus.ACTIVE
+    ).options(
+        joinedload(OutpassRequest.student).joinedload(Student.user)
+    ).all()
+
+    if not active_outpasses:
+        return []
+
+    # Get the latest location log for all active outpasses in one bulk query
+    outpass_ids = [o.id for o in active_outpasses]
+
+    # Subquery to get the latest log ID for each outpass request
+    latest_log_ids_subquery = db.query(
+        func.max(LocationLog.id).label('max_id')
+    ).filter(
+        LocationLog.outpass_request_id.in_(outpass_ids)
+    ).group_by(
+        LocationLog.outpass_request_id
+    ).subquery()
+
+    latest_logs = db.query(LocationLog).filter(
+        LocationLog.id.in_(latest_log_ids_subquery)
+    ).all()
+
+    # Map outpass_id to its latest log
+    logs_map = {log.outpass_request_id: log for log in latest_logs}
     
     result = []
     for outpass in active_outpasses:
-        # Get the latest location log for this outpass
-        latest_log = db.query(LocationLog).filter(LocationLog.outpass_request_id == outpass.id).order_by(LocationLog.timestamp.desc()).first()
+        latest_log = logs_map.get(outpass.id)
+        student = outpass.student
+        user = student.user
         
-        student = db.query(Student).filter(Student.id == outpass.student_id).first()
-        user = db.query(User).filter(User.id == student.user_id).first()
-        
-        # We only include if they have at least one location log, or we could include with nulls
-        # Let's include them with either the log data or empty/zeros just so they show up on the map
         student_name = f"{user.first_name} {user.last_name}"
         
         result.append(ActiveStudentLocation(
@@ -526,19 +549,36 @@ async def websocket_endpoint(websocket: WebSocket, token: str, db: Session = Dep
     await manager.connect(websocket, user_id)
 
     try:
-        # Send initial active students list
+        # Send initial active students list with student and user data joined
         active_outpasses = db.query(OutpassRequest).filter(
             OutpassRequest.status == OutpassStatus.ACTIVE
+        ).options(
+            joinedload(OutpassRequest.student).joinedload(Student.user)
         ).all()
+
+        if active_outpasses:
+            outpass_ids = [o.id for o in active_outpasses]
+            # Bulk fetch latest location logs
+            latest_log_ids_subquery = db.query(
+                func.max(LocationLog.id).label('max_id')
+            ).filter(
+                LocationLog.outpass_request_id.in_(outpass_ids)
+            ).group_by(
+                LocationLog.outpass_request_id
+            ).subquery()
+
+            latest_logs = db.query(LocationLog).filter(
+                LocationLog.id.in_(latest_log_ids_subquery)
+            ).all()
+            logs_map = {log.outpass_request_id: log for log in latest_logs}
+        else:
+            logs_map = {}
 
         active_students_list = []
         for outpass in active_outpasses:
-            latest_log = db.query(LocationLog).filter(
-                LocationLog.outpass_request_id == outpass.id
-            ).order_by(LocationLog.timestamp.desc()).first()
-
-            student = db.query(Student).filter(Student.id == outpass.student_id).first()
-            user = db.query(User).filter(User.id == student.user_id).first()
+            latest_log = logs_map.get(outpass.id)
+            student = outpass.student
+            user = student.user
 
             active_students_list.append({
                 "student_id": student.id,

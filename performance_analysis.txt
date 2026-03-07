@@ -1,0 +1,27 @@
+# Performance Analysis: N+1 Query Issue in Active Student Locations
+
+## Current Inefficiency
+The `get_active_students_locations` and WebSocket endpoints in `backend/main.py` exhibit a classic N+1 query pattern. For each active outpass, the following queries are executed:
+1. `db.query(LocationLog).filter(LocationLog.outpass_request_id == outpass.id).order_by(LocationLog.timestamp.desc()).first()`
+2. `db.query(Student).filter(Student.id == outpass.student_id).first()`
+3. `db.query(User).filter(User.id == student.user_id).first()`
+
+If there are `N` active outpasses, the total number of queries is `1 + 3N`. This scales linearly with the number of active outpasses, leading to significant latency and database load as the system grows.
+
+## Baseline Measurement Limitation
+Establishing a live performance baseline in the current sandbox environment is impractical due to:
+- Missing dependencies: `fastapi`, `sqlalchemy`, etc. are not installed in the default environment.
+- Lack of internet access: `pip install` cannot be used to fetch these dependencies.
+- No running PostgreSQL instance: The system expects a PostgreSQL database which is not currently accessible/running.
+
+## Optimization Strategy
+The proposed optimization will:
+1. Use `joinedload` to fetch `Student` and `User` in the initial query for active outpasses.
+2. Use a single bulk query with a subquery/join to fetch the latest `LocationLog` for all relevant outpasses at once.
+
+This will reduce the total number of queries from `1 + 3N` to `2` (one for outpasses + students + users, and one for latest location logs), regardless of the number of active outpasses.
+
+## Expected Improvement
+- **Query Count Reduction:** From `1 + 3N` to `2`.
+- **Latency:** Significant reduction in round-trip times to the database, especially as `N` increases.
+- **Scalability:** The endpoint will handle hundreds or thousands of active outpasses with minimal performance degradation compared to the current linear growth.
