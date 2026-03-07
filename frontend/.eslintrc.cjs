@@ -16,6 +16,11 @@ module.exports = {
     sourceType: 'module',
   },
   plugins: ['react', 'react-hooks'],
+  settings: {
+    react: {
+      version: 'detect',
+    },
+  },
   rules: {
     'react/react-in-jsx-scope': 'off',
     'react/prop-types': 'warn',

@@ -1,4 +1,5 @@
 import { FiLoader } from 'react-icons/fi';
+import PropTypes from 'prop-types';
 
 export default function Loading({ message = 'Loading...' }) {
   return (
@@ -30,3 +31,7 @@ export default function Loading({ message = 'Loading...' }) {
     </div>
   );
 }
+
+Loading.propTypes = {
+  message: PropTypes.string
+};
