@@ -1,3 +1,5 @@
+import PropTypes from 'prop-types';
+
 const statusColors = {
   pending: { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Pending' },
   approved: { bg: 'bg-green-100', text: 'text-green-700', label: 'Approved' },
@@ -16,3 +18,7 @@ export default function StatusBadge({ status }) {
     </span>
   );
 }
+
+StatusBadge.propTypes = {
+  status: PropTypes.string
+};

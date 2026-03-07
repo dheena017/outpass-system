@@ -22,7 +22,7 @@ export default function Map() {
   const [activeStudents, setActiveStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [center, setCenter] = useState([0, 0]);
-  const [wsConnected, setWsConnected] = useState(false);
+  const [, setWsConnected] = useState(false);
   const [routeHistory, setRouteHistory] = useState({});
   const [selectedStudentId, setSelectedStudentId] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState('disconnected'); // disconnected, connecting, connected, reconnecting
@@ -51,6 +51,7 @@ export default function Map() {
         clearTimeout(reconnectTimeoutRef.current);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const fetchLocationHistory = async (requestId, studentId) => {

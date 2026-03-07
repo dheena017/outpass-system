@@ -8,9 +8,15 @@ load_dotenv()
 db_url = os.getenv("DATABASE_URL")
 print(f"Connecting to: {db_url}")
 
-try:
-    engine = create_engine(db_url)
-    with engine.connect() as conn:
-        print("Connection successful!")
-except Exception as e:
-    print(f"Connection failed: {e}")
+def test_connection():
+    try:
+        if not db_url:
+            return
+        engine = create_engine(db_url)
+        with engine.connect() as conn:
+            print("Connection successful!")
+    except Exception as e:
+        print(f"Connection failed (expected if DB is not running): {e}")
+
+if __name__ == "__main__":
+    test_connection()

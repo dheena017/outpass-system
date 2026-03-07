@@ -48,7 +48,7 @@ export default function ApprovalQueue() {
     }
   };
 
-  const handleReject = async (requestId, reason) => {
+  const handleReject = async (requestId) => {
     const rejectionReason = prompt('Enter rejection reason:');
     if (!rejectionReason) return;
 
