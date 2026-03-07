@@ -36,8 +36,16 @@ apiClient.interceptors.response.use(
     const status = error.response?.status;
     const backendDetail = error.response?.data?.detail;
 
-    // Choose the best message: specific backend detail or our standard status message
-    const message = backendDetail || getStatusMessage(status);
+    // Dismiss existing toasts before showing a new error to prevent stacking
+    toast.dismiss();
+
+    let message = backendDetail || getStatusMessage(status);
+
+    if (status === 429) {
+      message = 'Too many attempts. Please wait a moment.';
+    } else if (status === 401 && !backendDetail) {
+      message = 'Invalid credentials.';
+    }
 
     if (status) {
       toast.error(message);

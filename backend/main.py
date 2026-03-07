@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, Depends, status, WebSocket, WebSocketDisconnect, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from datetime import timedelta
@@ -25,6 +26,12 @@ from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 # Create tables
 Base.metadata.create_all(bind=engine)
 
+def custom_rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded):
+    return JSONResponse(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        content={"detail": "Too many attempts. Please wait a moment."},
+    )
+
 # Initialize FastAPI app
 app = FastAPI(
     title=settings.api_title,
@@ -35,7 +42,7 @@ app = FastAPI(
 # Initialize Limiter
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_exception_handler(RateLimitExceeded, custom_rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
 
 if not settings.debug:
@@ -55,7 +62,7 @@ app.add_middleware(
     allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["Authorization", "Content-Type", "Accept"],
 )
 
 
@@ -232,6 +239,12 @@ async def create_outpass_request(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Student profile not found",
+        )
+    
+    if request_data.expected_return_time <= request_data.departure_time:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Expected return time must be after departure time",
         )
     
     # Create the outpass request
@@ -559,13 +572,20 @@ async def websocket_endpoint(websocket: WebSocket, token: str, db: Session = Dep
         while True:
             data = await websocket.receive_text()
             # Handle any incoming messages (e.g., ping/pong for keepalive)
-            if data == "ping":
-                await websocket.send_text("pong")
-
+            try:
+                import json
+                parsed = json.loads(data)
+                if isinstance(parsed, dict) and parsed.get("type") == "ping":
+                    await websocket.send_text(json.dumps({"type": "pong"}))
+            except json.JSONDecodeError:
+                if data == "ping":
+                    await websocket.send_text("pong")
     except WebSocketDisconnect:
         manager.disconnect(user_id)
     except Exception as e:
         print(f"WebSocket error for user {user_id}: {e}")
+        import traceback
+        traceback.print_exc()
         manager.disconnect(user_id)
 
 

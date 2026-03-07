@@ -23,9 +23,19 @@ export default function RequestForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (loading) return;
     setError('');
     setSuccess('');
     setLoading(true);
+
+    const departure = new Date(formData.departure_time);
+    const returnTime = new Date(formData.expected_return_time);
+
+    if (returnTime <= departure) {
+      setError('Expected return time must be after the departure time.');
+      setLoading(false);
+      return;
+    }
 
     try {
       await outpassAPI.submitRequest({
