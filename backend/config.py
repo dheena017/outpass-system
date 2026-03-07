@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
 
     # CORS
-    cors_origins: List[str] = ["http://localhost:5174", "http://localhost:3000"]
+    cors_origins: List[str] | str = ["http://localhost:5174", "http://localhost:3000"]
 
     @field_validator('cors_origins', mode='before')
     @classmethod
