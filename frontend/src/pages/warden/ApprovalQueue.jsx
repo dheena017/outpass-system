@@ -21,7 +21,6 @@ export default function ApprovalQueue() {
       setLoading(true);
       const response = await outpassAPI.getPendingRequests();
       setRequests(response.data);
-      toastService.info(`Found ${response.data.length} pending requests`);
     } catch (err) {
       const errorMsg = err.response?.data?.detail || 'Failed to fetch requests';
       setError(errorMsg);

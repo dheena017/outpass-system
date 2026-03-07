@@ -177,7 +177,9 @@ class LocationLogResponse(BaseModel):
 
 
 class ActiveStudentLocation(BaseModel):
-    student_id: int
+    outpass_request_id: int
+    student_db_id: int
+    student_id: str
     student_name: str
     destination: str
     latitude: float

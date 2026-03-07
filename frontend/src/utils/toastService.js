@@ -20,6 +20,7 @@ export const toastService = {
 
   error: (message, options = {}) => {
     toast.error(message, {
+      toastId: message,
       position: 'bottom-right',
       autoClose: 5000,
       hideProgressBar: false,

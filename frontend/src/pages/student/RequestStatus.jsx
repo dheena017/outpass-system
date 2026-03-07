@@ -26,7 +26,6 @@ export default function RequestStatus() {
       setLoading(true);
       const response = await outpassAPI.getStudentRequests();
       setRequests(response.data);
-      toastService.info(`Loaded ${response.data.length} requests`);
     } catch (err) {
       const errorMsg = getErrorMessage(err);
       setError(errorMsg);
@@ -40,16 +39,25 @@ export default function RequestStatus() {
     setActionLoading(requestId);
     try {
       await outpassAPI.updateRequestStatus(requestId, newStatus);
-      setRequests((prev) =>
-        prev.map((r) =>
-          r.id === requestId ? { ...r, status: newStatus } : r
-        )
-      );
-      toastService.success(`Status updated to ${newStatus}!`);
+      // Refresh requests from server to get accurate actual_return_time etc.
+      const fresh = await outpassAPI.getStudentRequests();
+      setRequests(fresh.data);
+      const successMessages = {
+        active: '🚶 Outpass started! Safe travels!',
+        closed: '🏠 Marked as returned. Welcome back!',
+      };
+      toastService.success(successMessages[newStatus] || `Status updated to ${newStatus}!`);
     } catch (err) {
-      const errorMsg = getErrorMessage(err, 'UPDATE_REQUEST');
-      setError(errorMsg);
-      toastService.error(errorMsg);
+      const errDetail = err.response?.data?.detail || '';
+      // Surface the backend's friendly validation messages
+      const friendlyMsg =
+        errDetail === 'Cannot start outpass before departure time'
+          ? "⏰ Your outpass hasn't started yet! You can only activate it on or after the departure date."
+          : errDetail === 'Cannot return before departure time'
+            ? "⏰ You can't return before you've even left! Wait until the departure date."
+            : getErrorMessage(err, 'UPDATE_REQUEST');
+      setError(friendlyMsg);
+      toastService.error(friendlyMsg);
     } finally {
       setActionLoading(null);
     }
@@ -58,12 +66,33 @@ export default function RequestStatus() {
   // Get the active request (if any)
   const activeRequest = requests.find((r) => r.status === 'active');
 
-  // Status transition rules
-  const getAvailableActions = (status) => {
+  // Status transition rules — takes full request object to check departure time
+  const getAvailableActions = (request) => {
+    const { status, departure_time } = request;
+    const now = new Date();
+    const departure = departure_time ? new Date(departure_time) : null;
+    const isBeforeDeparture = departure && now < departure;
+
     const transitions = {
       pending: [],
-      approved: [{ status: 'active', label: 'Start Outpass', icon: FiPlay, color: 'blue' }],
-      active: [{ status: 'closed', label: 'Mark as Returned', icon: FiCheckCircle, color: 'green' }],
+      approved: [{
+        status: 'active',
+        label: 'Start Outpass',
+        icon: FiPlay,
+        color: 'blue',
+        disabled: isBeforeDeparture,
+        disabledReason: departure
+          ? `Available from ${departure.toLocaleDateString()} ${departure.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+          : null,
+      }],
+      active: [{
+        status: 'closed',
+        label: 'Mark as Returned',
+        icon: FiCheckCircle,
+        color: 'green',
+        disabled: isBeforeDeparture,
+        disabledReason: isBeforeDeparture ? 'Cannot return before departure time' : null,
+      }],
       rejected: [],
       closed: [],
       expired: [],
@@ -82,10 +111,12 @@ export default function RequestStatus() {
     let totalDuration = 0;
     let closedCount = 0;
     requests.forEach((r) => {
-      if (r.status === 'closed' && r.expected_return_time) {
-        const departure = new Date(r.departure_time);
-        const returnTime = new Date(r.expected_return_time);
-        const duration = (returnTime - departure) / (1000 * 60 * 60); // in hours
+      // Calculate based on actual time spent outside, assuming they left on the departure date
+      if (r.status === 'closed' && r.actual_return_time) {
+        const departure = r.departure_time ? new Date(r.departure_time) : new Date();
+        const returnTime = new Date(r.actual_return_time);
+        let duration = (returnTime - departure) / (1000 * 60 * 60); // in hours
+        if (duration < 0) duration = 0;
         totalDuration += duration;
         closedCount++;
       }
@@ -124,9 +155,9 @@ export default function RequestStatus() {
   const metrics = calculateMetrics();
   const filteredRequests = getFilteredAndSortedRequests();
 
-    if (loading) {
-      return <Loading message="Loading your requests..." />;
-    }
+  if (loading) {
+    return <Loading message="Loading your requests..." />;
+  }
 
   return (
     <div className="p-8">
@@ -189,8 +220,8 @@ export default function RequestStatus() {
       {/* Location Tracker for active request */}
       {activeRequest && (
         <div className="mb-8">
-          <LocationTracker 
-            activeRequestId={activeRequest.id} 
+          <LocationTracker
+            activeRequestId={activeRequest.id}
             requestData={activeRequest}
           />
         </div>
@@ -265,7 +296,7 @@ export default function RequestStatus() {
             </div>
           </div>
           {filteredRequests.map((request) => {
-            const availableActions = getAvailableActions(request.status);
+            const availableActions = getAvailableActions(request);
             return (
               <div
                 key={request.id}
@@ -290,6 +321,12 @@ export default function RequestStatus() {
                     <span className="font-semibold">Expected Return:</span>{' '}
                     {new Date(request.expected_return_time).toLocaleString()}
                   </div>
+                  {request.actual_return_time && (
+                    <div>
+                      <span className="font-semibold">Actual Return:</span>{' '}
+                      {new Date(request.actual_return_time).toLocaleString()}
+                    </div>
+                  )}
                 </div>
 
                 {request.rejection_reason && (
@@ -303,26 +340,34 @@ export default function RequestStatus() {
 
                 {/* Action Buttons */}
                 {availableActions.length > 0 && (
-                  <div className="flex gap-3 mt-4 pt-4 border-t">
-                    {availableActions.map((action) => {
-                      const IconComponent = action.icon;
-                      const colorClasses = {
-                        blue: 'bg-blue-500 hover:bg-blue-600',
-                        green: 'bg-green-500 hover:bg-green-600',
-                        orange: 'bg-orange-500 hover:bg-orange-600',
-                      };
-                      return (
-                        <button
-                          key={action.status}
-                          onClick={() => handleStatusUpdate(request.id, action.status)}
-                          disabled={actionLoading === request.id}
-                          className={`flex items-center gap-2 ${colorClasses[action.color]} disabled:opacity-50 text-white px-4 py-2 rounded-lg transition`}
-                        >
-                          <IconComponent size={16} />
-                          {actionLoading === request.id ? 'Updating...' : action.label}
-                        </button>
-                      );
-                    })}
+                  <div className="flex flex-col gap-2 mt-4 pt-4 border-t">
+                    <div className="flex gap-3">
+                      {availableActions.map((action) => {
+                        const IconComponent = action.icon;
+                        const colorClasses = {
+                          blue: 'bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300',
+                          green: 'bg-green-500 hover:bg-green-600 disabled:bg-green-300',
+                          orange: 'bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300',
+                        };
+                        return (
+                          <button
+                            key={action.status}
+                            onClick={() => handleStatusUpdate(request.id, action.status)}
+                            disabled={actionLoading === request.id || action.disabled}
+                            title={action.disabledReason || ''}
+                            className={`flex items-center gap-2 ${colorClasses[action.color]} disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg transition`}
+                          >
+                            <IconComponent size={16} />
+                            {actionLoading === request.id ? 'Updating...' : action.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {availableActions.some(a => a.disabled && a.disabledReason) && (
+                      <p className="text-xs text-amber-600 flex items-center gap-1">
+                        ⏰ {availableActions.find(a => a.disabled && a.disabledReason)?.disabledReason}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>

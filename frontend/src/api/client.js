@@ -1,6 +1,5 @@
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { getStatusMessage } from '../utils/statusMessages';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 const apiClient = axios.create({
@@ -22,44 +21,20 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Handle response errors and successes
+// Handle response errors — only handle session expiry globally.
+// All other errors are handled by individual page components so toasts don't double-fire.
 apiClient.interceptors.response.use(
-  (response) => {
-    // For successful mutations, we could show the 200 message, 
-    // but typically we only do this if it's a specific success like "Saved!"
-    if (['post', 'put', 'delete', 'patch'].includes(response.config.method)) {
-      // toast.success(getStatusMessage(200));
-    }
-    return response;
-  },
+  (response) => response,
   (error) => {
     const status = error.response?.status;
-    const backendDetail = error.response?.data?.detail;
 
-    // Dismiss existing toasts before showing a new error to prevent stacking
-    toast.dismiss();
-
-    let message = backendDetail || getStatusMessage(status);
-
-    if (status === 429) {
-      message = 'Too many attempts. Please wait a moment.';
-    } else if (status === 401 && !backendDetail) {
-      message = 'Invalid credentials.';
-    }
-
-    if (status) {
-      toast.error(message);
-
-      if (status === 401) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        // Prevent infinite loops if already on login
-        if (window.location.pathname !== '/login') {
-          window.location.href = '/login';
-        }
+    if (status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      if (window.location.pathname !== '/login') {
+        toast.error('Session expired. Please log in again.', { toastId: 'session-expired' });
+        window.location.href = '/login';
       }
-    } else {
-      toast.error('Network error. Please check your connection.');
     }
 
     return Promise.reject(error);
@@ -67,5 +42,3 @@ apiClient.interceptors.response.use(
 );
 
 export default apiClient;
-
-

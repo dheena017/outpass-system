@@ -12,7 +12,6 @@ export const useAuthStore = create((set) => ({
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(user));
     set({ user, token, isAuthenticated: true });
-    toast.success(getStatusMessage(200));
   },
 
 

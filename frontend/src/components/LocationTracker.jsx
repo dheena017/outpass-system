@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { locationAPI } from '../api/endpoints';
 import { FiMapPin, FiAlertTriangle, FiCheck } from 'react-icons/fi';
 import PropTypes from 'prop-types';
 
 export default function LocationTracker({ activeRequestId }) {
+  const watchIdRef = useRef(null);
   const [tracking, setTracking] = useState(false);
   const [lastLocation, setLastLocation] = useState(null);
   const [accuracy, setAccuracy] = useState(null);
@@ -24,6 +25,15 @@ export default function LocationTracker({ activeRequestId }) {
         });
       });
     }
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+    };
   }, []);
 
   const requestLocationPermission = async () => {
@@ -65,7 +75,7 @@ export default function LocationTracker({ activeRequestId }) {
       maximumAge: 0,
     };
 
-    navigator.geolocation.watchPosition(
+    watchIdRef.current = navigator.geolocation.watchPosition(
       async (position) => {
         const { latitude, longitude, accuracy: gpsAccuracy } = position.coords;
 
@@ -111,7 +121,10 @@ export default function LocationTracker({ activeRequestId }) {
   };
 
   const stopTracking = () => {
-    navigator.geolocation.clearWatch();
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
     setTracking(false);
     setSuccess('Location tracking stopped');
   };

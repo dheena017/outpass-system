@@ -309,15 +309,29 @@ async def update_outpass_status(
     db: Session = Depends(get_db)
 ):
     """Approve or reject an outpass request (Wardens only)."""
-    if current_user["role"] not in [UserRole.WARDEN, UserRole.ADMIN]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to update outpass status",
-        )
-        
     outpass = db.query(OutpassRequest).filter(OutpassRequest.id == outpass_id).first()
     if not outpass:
         raise HTTPException(status_code=404, detail="Outpass request not found")
+
+    # Determine allowed transitions based on role
+    allowed = False
+    new_status_str = update_data.status
+    if current_user["role"] in [UserRole.WARDEN, UserRole.ADMIN]:
+        allowed = True
+    elif current_user["role"] == UserRole.STUDENT:
+        student = db.query(Student).filter(Student.user_id == current_user["user_id"]).first()
+        if student and outpass.student_id == student.id:
+            # Student can only transition APPROVED -> ACTIVE and ACTIVE -> CLOSED
+            if outpass.status == OutpassStatus.APPROVED and new_status_str == "active":
+                allowed = True
+            elif outpass.status == OutpassStatus.ACTIVE and new_status_str == "closed":
+                allowed = True
+
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to perform this status update",
+        )
         
     # Validate the target status
     try:
@@ -325,6 +339,22 @@ async def update_outpass_status(
     except ValueError:
         raise HTTPException(status_code=400, detail=f"Invalid status: {update_data.status}")
         
+    from datetime import datetime
+    now_utc = datetime.utcnow()
+    # Handle timezone awareness for comparison
+    comparing_time = now_utc
+    if outpass.departure_time and outpass.departure_time.tzinfo is not None:
+        from datetime import timezone
+        comparing_time = now_utc.replace(tzinfo=timezone.utc)
+        
+    if new_status == OutpassStatus.ACTIVE and current_user["role"] == UserRole.STUDENT:
+        if outpass.departure_time and comparing_time < outpass.departure_time:
+            raise HTTPException(status_code=400, detail="Cannot start outpass before departure time")
+            
+    if new_status == OutpassStatus.CLOSED and current_user["role"] == UserRole.STUDENT:
+        if outpass.departure_time and comparing_time < outpass.departure_time:
+            raise HTTPException(status_code=400, detail="Cannot return before departure time")
+
     outpass.status = new_status
     
     if new_status == OutpassStatus.APPROVED:
@@ -336,11 +366,17 @@ async def update_outpass_status(
     elif new_status == OutpassStatus.REJECTED:
         outpass.rejection_reason = update_data.rejection_reason
     elif new_status == OutpassStatus.CLOSED:
-        from datetime import datetime
-        outpass.actual_return_time = datetime.utcnow()
+        outpass.actual_return_time = now_utc
         
     db.commit()
     db.refresh(outpass)
+    
+    # Broadcast status update if appropriate
+    student = db.query(Student).filter(Student.id == outpass.student_id).first()
+    if student:
+        import asyncio
+        asyncio.create_task(manager.broadcast_status_update(outpass.id, new_status_str, student.student_id))
+        
     return outpass
 
 
@@ -416,7 +452,9 @@ async def submit_location(
     # Broadcast location update to all connected wardens
     user = db.query(User).filter(User.id == student.user_id).first()
     location_update = {
-        "student_id": student.id,
+        "outpass_request_id": outpass.id,
+        "student_db_id": student.id,
+        "student_id": student.student_id,
         "student_name": f"{user.first_name} {user.last_name}",
         "destination": outpass.destination,
         "latitude": float(location_data.latitude),
@@ -521,7 +559,9 @@ async def get_active_students_locations(
         student_name = f"{user.first_name} {user.last_name}"
         
         result.append(ActiveStudentLocation(
-            student_id=student.id,
+            outpass_request_id=outpass.id,
+            student_db_id=student.id,
+            student_id=student.student_id,
             student_name=student_name,
             destination=outpass.destination,
             latitude=latest_log.latitude if latest_log else 0.0,
@@ -594,7 +634,9 @@ async def websocket_endpoint(websocket: WebSocket, token: str, db: Session = Dep
             user = student.user
 
             active_students_list.append({
-                "student_id": student.id,
+                "outpass_request_id": outpass.id,
+                "student_db_id": student.id,
+                "student_id": student.student_id,
                 "student_name": f"{user.first_name} {user.last_name}",
                 "destination": outpass.destination,
                 "latitude": float(latest_log.latitude) if latest_log else 0.0,
