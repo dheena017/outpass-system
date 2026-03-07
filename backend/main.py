@@ -294,7 +294,7 @@ async def get_warden_analytics(
     ]
     if closed_with_times:
         durations = [
-            (r.actual_return_time - r.departure_time).total_seconds() / 3600
+            max(0, (r.actual_return_time - r.departure_time).total_seconds() / 3600)
             for r in closed_with_times
         ]
         avg_duration_hours = round(sum(durations) / len(durations), 1)
