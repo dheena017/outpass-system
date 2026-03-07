@@ -1,0 +1,32 @@
+# General
+.DS_Store
+*.log
+*.mp4
+
+# Python / Backend
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+.venv/
+backend/.venv/
+backend/env/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Node / Frontend
+node_modules/
+frontend/node_modules/
+dist/
+dist-ssr/
+.vite/
+*.local
+
+# Database
+*.sqlite
+*.sqlite3
+*.db

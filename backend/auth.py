@@ -64,12 +64,12 @@ def decode_token(token: str) -> dict:
 async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
     """Dependency to get the current authenticated user."""
     payload = decode_token(token)
-    user_id: int = payload.get("sub")
+    user_id_str = payload.get("sub")
     
-    if user_id is None:
+    if user_id_str is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication credentials",
         )
     
-    return {"user_id": user_id, "role": payload.get("role")}
+    return {"user_id": int(user_id_str), "role": payload.get("role")}

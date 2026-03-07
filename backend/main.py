@@ -88,7 +88,7 @@ async def login(request: Request, credentials: LoginRequest, db: Session = Depen
         )
     
     access_token = create_access_token(
-        data={"sub": user.id, "role": user.role},
+        data={"sub": str(user.id), "role": user.role},
         expires_delta=timedelta(minutes=settings.access_token_expire_minutes),
     )
     
