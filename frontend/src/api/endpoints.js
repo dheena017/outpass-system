@@ -60,6 +60,13 @@ export const outpassAPI = {
 
   expireOverdue: () =>
     apiClient.post('/outpasses/expire-overdue'),
+
+  bulkAction: (ids, action, rejectionReason) =>
+    apiClient.post('/outpasses/bulk-action', {
+      ids,
+      action,
+      rejection_reason: rejectionReason,
+    }),
 };
 
 export const locationAPI = {

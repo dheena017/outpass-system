@@ -378,6 +378,56 @@ async def expire_overdue_outpasses(
     return {"message": f"Expired {count} overdue outpass(es)"}
 
 
+@app.post("/outpasses/bulk-action")
+async def bulk_outpass_action(
+    action_data: dict,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Bulk approve or reject multiple outpass requests. Warden/Admin only."""
+    if current_user["role"] not in [UserRole.WARDEN, UserRole.ADMIN]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    ids = action_data.get("ids", [])
+    action = action_data.get("action")  # "approved" or "rejected"
+    rejection_reason = action_data.get("rejection_reason", "Bulk rejected by warden")
+
+    if not ids:
+        raise HTTPException(status_code=400, detail="No request IDs provided")
+    if action not in ["approved", "rejected"]:
+        raise HTTPException(status_code=400, detail="Action must be 'approved' or 'rejected'")
+
+    warden = db.query(Warden).filter(Warden.user_id == current_user["user_id"]).first()
+    now = datetime.utcnow()
+    success_ids = []
+    failed_ids = []
+
+    for outpass_id in ids:
+        outpass = db.query(OutpassRequest).filter(
+            OutpassRequest.id == outpass_id,
+            OutpassRequest.status == OutpassStatus.PENDING
+        ).first()
+        if not outpass:
+            failed_ids.append(outpass_id)
+            continue
+        if action == "approved":
+            outpass.status = OutpassStatus.APPROVED
+            outpass.approval_time = now
+            if warden:
+                outpass.approved_by = warden.id
+        else:
+            outpass.status = OutpassStatus.REJECTED
+            outpass.rejection_reason = rejection_reason
+        success_ids.append(outpass_id)
+
+    db.commit()
+    return {
+        "message": f"Processed {len(success_ids)} request(s)",
+        "success": success_ids,
+        "failed": failed_ids,
+    }
+
+
 @app.patch("/outpasses/{outpass_id}/status", response_model=OutpassRequestResponse)
 async def update_outpass_status(
     outpass_id: int,
