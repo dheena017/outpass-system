@@ -3,9 +3,11 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
-from datetime import timedelta
+from datetime import timedelta, datetime
+from contextlib import asynccontextmanager
+import asyncio
 from config import settings
-from database import engine, get_db
+from database import engine, get_db, SessionLocal
 from models import Base, User, Student, Warden, UserRole, OutpassRequest, OutpassStatus
 from auth import get_password_hash, create_access_token, verify_password, get_current_user
 from schemas import (
@@ -27,6 +29,49 @@ from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 # Create tables
 Base.metadata.create_all(bind=engine)
 
+
+async def auto_expire_outpasses():
+    """Background task: every 5 minutes, expire active outpasses past their return time."""
+    while True:
+        await asyncio.sleep(300)  # run every 5 minutes
+        try:
+            db = SessionLocal()
+            now = datetime.utcnow()
+            # Find all ACTIVE outpasses whose expected_return_time has passed
+            expired = db.query(OutpassRequest).filter(
+                OutpassRequest.status == OutpassStatus.ACTIVE,
+                OutpassRequest.expected_return_time < now
+            ).all()
+
+            for outpass in expired:
+                outpass.status = OutpassStatus.EXPIRED
+                outpass.actual_return_time = now  # mark when we auto-closed it
+                # Broadcast to wardens so the map removes them immediately
+                student = db.query(Student).filter(Student.id == outpass.student_id).first()
+                if student:
+                    asyncio.create_task(
+                        manager.broadcast_status_update(outpass.id, "expired", student.student_id)
+                    )
+
+            if expired:
+                db.commit()
+                print(f"[Scheduler] Auto-expired {len(expired)} outpass(es)")
+            db.close()
+        except Exception as e:
+            print(f"[Scheduler] Error in auto_expire job: {e}")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Start background tasks on startup, cancel on shutdown."""
+    expire_task = asyncio.create_task(auto_expire_outpasses())
+    yield
+    expire_task.cancel()
+    try:
+        await expire_task
+    except asyncio.CancelledError:
+        pass
+
 def custom_rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded):
     return JSONResponse(
         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -38,6 +83,7 @@ app = FastAPI(
     title=settings.api_title,
     version=settings.api_version,
     debug=settings.debug,
+    lifespan=lifespan,
 )
 
 # Initialize Limiter
@@ -299,6 +345,37 @@ async def get_pending_requests(
         
     requests = db.query(OutpassRequest).filter(OutpassRequest.status == OutpassStatus.PENDING).order_by(OutpassRequest.created_at.asc()).all()
     return requests
+
+
+@app.post("/outpasses/expire-overdue")
+async def expire_overdue_outpasses(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Immediately expire all active outpasses past their expected return time. Warden/Admin only."""
+    if current_user["role"] not in [UserRole.WARDEN, UserRole.ADMIN]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    now = datetime.utcnow()
+    expired = db.query(OutpassRequest).filter(
+        OutpassRequest.status == OutpassStatus.ACTIVE,
+        OutpassRequest.expected_return_time < now
+    ).all()
+
+    count = len(expired)
+    for outpass in expired:
+        outpass.status = OutpassStatus.EXPIRED
+        outpass.actual_return_time = now
+        student = db.query(Student).filter(Student.id == outpass.student_id).first()
+        if student:
+            asyncio.create_task(
+                manager.broadcast_status_update(outpass.id, "expired", student.student_id)
+            )
+
+    if count:
+        db.commit()
+
+    return {"message": f"Expired {count} overdue outpass(es)"}
 
 
 @app.patch("/outpasses/{outpass_id}/status", response_model=OutpassRequestResponse)

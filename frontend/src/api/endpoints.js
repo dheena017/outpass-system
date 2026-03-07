@@ -57,6 +57,9 @@ export const outpassAPI = {
 
   getActiveStudents: () =>
     apiClient.get('/location/active-students'),
+
+  expireOverdue: () =>
+    apiClient.post('/outpasses/expire-overdue'),
 };
 
 export const locationAPI = {

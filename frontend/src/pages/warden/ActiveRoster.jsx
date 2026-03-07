@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
 import { outpassAPI } from '../../api/endpoints';
 import Loading from '../../components/Loading';
-import { FiRefreshCw } from 'react-icons/fi';
+import toastService from '../../utils/toastService';
+import { FiRefreshCw, FiAlertTriangle, FiClock } from 'react-icons/fi';
 
 export default function ActiveRoster() {
   const [activeStudents, setActiveStudents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [expiringLoading, setExpiringLoading] = useState(false);
   const [error, setError] = useState('');
+  const [lastRefresh, setLastRefresh] = useState(null);
 
   useEffect(() => {
     fetchActiveStudents();
@@ -18,6 +21,8 @@ export default function ActiveRoster() {
     try {
       const response = await outpassAPI.getActiveStudents();
       setActiveStudents(response.data);
+      setLastRefresh(new Date());
+      setError('');
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to fetch active students');
     } finally {
@@ -25,21 +30,76 @@ export default function ActiveRoster() {
     }
   };
 
+  const handleExpireOverdue = async () => {
+    setExpiringLoading(true);
+    try {
+      const res = await outpassAPI.expireOverdue();
+      toastService.success(`✅ ${res.data.message}`);
+      await fetchActiveStudents(); // refresh list
+    } catch (err) {
+      toastService.error(err.response?.data?.detail || 'Failed to expire overdue outpasses');
+    } finally {
+      setExpiringLoading(false);
+    }
+  };
+
+  const now = new Date();
+
+  const overdueCount = activeStudents.filter(
+    s => s.expected_return_time && new Date(s.expected_return_time) < now
+  ).length;
+
   if (loading) {
     return <Loading message="Loading active students..." />;
   }
 
   return (
     <div className="p-8">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-800">Active Roster</h1>
-        <button
-          onClick={fetchActiveStudents}
-          disabled={loading}
-          className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg"
-        >
-          <FiRefreshCw /> Refresh
-        </button>
+      <div className="flex flex-wrap justify-between items-start gap-4 mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-800">Active Roster</h1>
+          {lastRefresh && (
+            <p className="text-xs text-gray-400 mt-1">
+              Last updated: {lastRefresh.toLocaleTimeString()}
+            </p>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          {/* Expire Overdue button — only shown if there are overdue students */}
+          {overdueCount > 0 && (
+            <button
+              onClick={handleExpireOverdue}
+              disabled={expiringLoading}
+              className="flex items-center gap-2 bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white px-4 py-2 rounded-lg font-semibold text-sm transition"
+            >
+              <FiAlertTriangle />
+              {expiringLoading ? 'Expiring...' : `Expire ${overdueCount} Overdue`}
+            </button>
+          )}
+          <button
+            onClick={fetchActiveStudents}
+            disabled={loading}
+            className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg"
+          >
+            <FiRefreshCw className={loading ? 'animate-spin' : ''} /> Refresh
+          </button>
+        </div>
+      </div>
+
+      {/* Summary cards */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+        <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
+          <p className="text-sm text-blue-600 font-medium">Currently Outside</p>
+          <p className="text-3xl font-bold text-blue-700">{activeStudents.length}</p>
+        </div>
+        <div className={`rounded-lg p-4 border ${overdueCount > 0 ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-100'}`}>
+          <p className={`text-sm font-medium ${overdueCount > 0 ? 'text-red-600' : 'text-green-600'}`}>Overdue</p>
+          <p className={`text-3xl font-bold ${overdueCount > 0 ? 'text-red-700' : 'text-green-700'}`}>{overdueCount}</p>
+        </div>
+        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+          <p className="text-sm text-gray-500 font-medium">On Time</p>
+          <p className="text-3xl font-bold text-gray-700">{activeStudents.length - overdueCount}</p>
+        </div>
       </div>
 
       {error && (
@@ -50,7 +110,8 @@ export default function ActiveRoster() {
 
       {activeStudents.length === 0 ? (
         <div className="bg-white rounded-lg shadow p-8 text-center">
-          <p className="text-gray-600">No students currently outside</p>
+          <p className="text-4xl mb-3">🏠</p>
+          <p className="text-gray-600 font-medium">No students currently outside</p>
         </div>
       ) : (
         <div className="overflow-x-auto">
@@ -61,31 +122,54 @@ export default function ActiveRoster() {
                 <th className="px-6 py-3 text-left font-semibold text-gray-700">Student ID</th>
                 <th className="px-6 py-3 text-left font-semibold text-gray-700">Destination</th>
                 <th className="px-6 py-3 text-left font-semibold text-gray-700">Expected Return</th>
+                <th className="px-6 py-3 text-left font-semibold text-gray-700">Status</th>
                 <th className="px-6 py-3 text-left font-semibold text-gray-700">Battery</th>
               </tr>
             </thead>
             <tbody>
-              {activeStudents.map((student) => (
-                <tr key={student.student_id} className="border-t hover:bg-gray-50">
-                  <td className="px-6 py-4">{student.student_name}</td>
-                  <td className="px-6 py-4">{student.student_id}</td>
-                  <td className="px-6 py-4">{student.destination}</td>
-                  <td className="px-6 py-4">
-                    {new Date(student.expected_return_time).toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-green-500"
-                          style={{ width: `${student.battery_level || 0}%` }}
-                        ></div>
+              {activeStudents.map((student) => {
+                const isOverdue = student.expected_return_time && new Date(student.expected_return_time) < now;
+                const batteryLow = student.battery_level !== null && student.battery_level <= 20;
+                return (
+                  <tr
+                    key={student.student_id}
+                    className={`border-t ${isOverdue ? 'bg-red-50' : 'hover:bg-gray-50'}`}
+                  >
+                    <td className="px-6 py-4 font-medium text-gray-800">{student.student_name}</td>
+                    <td className="px-6 py-4 text-gray-600">{student.student_id}</td>
+                    <td className="px-6 py-4 text-gray-600">{student.destination}</td>
+                    <td className="px-6 py-4">
+                      <span className={isOverdue ? 'text-red-600 font-semibold' : 'text-gray-600'}>
+                        {new Date(student.expected_return_time).toLocaleString()}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      {isOverdue ? (
+                        <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 text-xs font-bold px-2 py-1 rounded-full">
+                          <FiAlertTriangle size={10} /> Overdue
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded-full">
+                          <FiClock size={10} /> On Time
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-20 h-2 bg-gray-200 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${batteryLow ? 'bg-red-500' : 'bg-green-500'}`}
+                            style={{ width: `${student.battery_level || 0}%` }}
+                          />
+                        </div>
+                        <span className={`text-sm ${batteryLow ? 'text-red-600 font-bold' : 'text-gray-600'}`}>
+                          {student.battery_level !== null && student.battery_level !== undefined ? `${student.battery_level}%` : 'N/A'}
+                        </span>
                       </div>
-                      <span className="text-sm">{student.battery_level || 'N/A'}%</span>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
