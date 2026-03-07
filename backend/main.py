@@ -265,6 +265,86 @@ async def get_current_user_info(
     return UserResponse.model_validate(user)
 
 
+# ============= Analytics Endpoint =============
+@app.get("/analytics/warden")
+async def get_warden_analytics(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Aggregate analytics for the warden dashboard. Warden/Admin only."""
+    if current_user["role"] not in [UserRole.WARDEN, UserRole.ADMIN]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    all_requests = db.query(OutpassRequest).all()
+
+    total = len(all_requests)
+    approved = sum(1 for r in all_requests if r.status in [OutpassStatus.APPROVED, OutpassStatus.ACTIVE, OutpassStatus.CLOSED])
+    rejected = sum(1 for r in all_requests if r.status == OutpassStatus.REJECTED)
+    expired  = sum(1 for r in all_requests if r.status == OutpassStatus.EXPIRED)
+    active   = sum(1 for r in all_requests if r.status == OutpassStatus.ACTIVE)
+    pending  = sum(1 for r in all_requests if r.status == OutpassStatus.PENDING)
+
+    approval_rate = round((approved / total * 100), 1) if total else 0
+
+    # Average time outside (closed outpasses with actual_return_time)
+    closed_with_times = [
+        r for r in all_requests
+        if r.status == OutpassStatus.CLOSED
+        and r.actual_return_time and r.departure_time
+    ]
+    if closed_with_times:
+        durations = [
+            (r.actual_return_time - r.departure_time).total_seconds() / 3600
+            for r in closed_with_times
+        ]
+        avg_duration_hours = round(sum(durations) / len(durations), 1)
+    else:
+        avg_duration_hours = 0
+
+    # Top 5 destinations
+    dest_counts = {}
+    for r in all_requests:
+        dest = r.destination or "Unknown"
+        dest_counts[dest] = dest_counts.get(dest, 0) + 1
+    top_destinations = sorted(dest_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+
+    # Requests per day — last 14 days
+    from datetime import timezone
+    now = datetime.utcnow()
+    daily_counts = {}
+    for i in range(13, -1, -1):
+        day = (now - timedelta(days=i)).strftime("%b %d")
+        daily_counts[day] = 0
+    for r in all_requests:
+        if r.created_at:
+            day = r.created_at.strftime("%b %d")
+            if day in daily_counts:
+                daily_counts[day] += 1
+    requests_by_day = [{"day": d, "count": c} for d, c in daily_counts.items()]
+
+    # Peak departure hours (0–23)
+    hour_counts = [0] * 24
+    for r in all_requests:
+        if r.departure_time:
+            hour_counts[r.departure_time.hour] += 1
+
+    return {
+        "summary": {
+            "total": total,
+            "pending": pending,
+            "active": active,
+            "approved": approved,
+            "rejected": rejected,
+            "expired": expired,
+            "approval_rate": approval_rate,
+            "avg_duration_hours": avg_duration_hours,
+        },
+        "top_destinations": [{"name": d, "count": c} for d, c in top_destinations],
+        "requests_by_day": requests_by_day,
+        "peak_hours": [{"hour": h, "count": hour_counts[h]} for h in range(24)],
+    }
+
+
 # ============= Outpass Endpoints =============
 @app.post("/outpasses/request", response_model=OutpassRequestResponse)
 async def create_outpass_request(

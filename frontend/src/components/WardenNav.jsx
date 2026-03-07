@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store';
-import { FiLogOut, FiMenu } from 'react-icons/fi';
+import { FiLogOut, FiMenu, FiBarChart2 } from 'react-icons/fi';
 import { useState } from 'react';
 
 export default function WardenNav() {
@@ -30,35 +30,42 @@ export default function WardenNav() {
 
         <Link
           to="/warden/approvals"
-          className={`block px-4 py-2 rounded transition ${
-            isActive('/warden/approvals')
+          className={`block px-4 py-2 rounded transition ${isActive('/warden/approvals')
               ? 'bg-green-600'
               : 'hover:bg-green-600'
-          }`}
+            }`}
         >
           Approval Queue
         </Link>
 
         <Link
           to="/warden/roster"
-          className={`block px-4 py-2 rounded transition ${
-            isActive('/warden/roster')
+          className={`block px-4 py-2 rounded transition ${isActive('/warden/roster')
               ? 'bg-green-600'
               : 'hover:bg-green-600'
-          }`}
+            }`}
         >
           Active Roster
         </Link>
 
         <Link
           to="/warden/map"
-          className={`block px-4 py-2 rounded transition ${
-            isActive('/warden/map')
+          className={`block px-4 py-2 rounded transition ${isActive('/warden/map')
               ? 'bg-green-600'
               : 'hover:bg-green-600'
-          }`}
+            }`}
         >
           Live Map
+        </Link>
+
+        <Link
+          to="/warden/analytics"
+          className={`flex items-center gap-2 px-4 py-2 rounded transition ${isActive('/warden/analytics')
+              ? 'bg-green-600'
+              : 'hover:bg-green-600'
+            }`}
+        >
+          <FiBarChart2 size={14} /> Analytics
         </Link>
 
         <button

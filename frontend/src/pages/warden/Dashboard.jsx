@@ -3,6 +3,7 @@ import WardenNav from '../../components/WardenNav';
 import ApprovalQueue from './ApprovalQueue';
 import ActiveRoster from './ActiveRoster';
 import Map from './Map';
+import Analytics from './Analytics';
 
 export default function WardenDashboard() {
   return (
@@ -13,6 +14,7 @@ export default function WardenDashboard() {
           <Route path="/approvals" element={<ApprovalQueue />} />
           <Route path="/roster" element={<ActiveRoster />} />
           <Route path="/map" element={<Map />} />
+          <Route path="/analytics" element={<Analytics />} />
           <Route path="/" element={<ApprovalQueue />} />
         </Routes>
       </main>
