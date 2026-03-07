@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { locationAPI, outpassAPI } from '../api/endpoints';
+import { locationAPI } from '../api/endpoints';
 import { FiMapPin, FiAlertTriangle, FiCheck } from 'react-icons/fi';
+import PropTypes from 'prop-types';
 
 export default function LocationTracker({ activeRequestId }) {
   const [tracking, setTracking] = useState(false);
@@ -198,3 +199,7 @@ export default function LocationTracker({ activeRequestId }) {
     </div>
   );
 }
+
+LocationTracker.propTypes = {
+  activeRequestId: PropTypes.number
+};
