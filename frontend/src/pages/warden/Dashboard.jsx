@@ -7,9 +7,9 @@ import Analytics from './Analytics';
 
 export default function WardenDashboard() {
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex min-h-screen bg-gray-100">
       <WardenNav />
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto pt-14 pb-16 md:pt-0 md:pb-0">
         <Routes>
           <Route path="/approvals" element={<ApprovalQueue />} />
           <Route path="/roster" element={<ActiveRoster />} />

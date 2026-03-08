@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store';
-import { FiLogOut, FiMenu, FiBarChart2 } from 'react-icons/fi';
+import { FiLogOut, FiMenu, FiX, FiCheckSquare, FiUsers, FiMap, FiBarChart2 } from 'react-icons/fi';
 import { useState } from 'react';
 
 export default function WardenNav() {
@@ -10,63 +10,36 @@ export default function WardenNav() {
 
   const isActive = (path) => location.pathname === path;
 
-  return (
-    <nav className="bg-green-700 text-white w-64 min-h-screen p-4">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-2xl font-bold">Outpass Control</h1>
-        <button
-          onClick={() => setOpen(!open)}
-          className="md:hidden text-2xl"
-        >
-          <FiMenu />
-        </button>
-      </div>
+  const links = [
+    { to: '/warden/approvals', label: 'Approvals', icon: FiCheckSquare },
+    { to: '/warden/roster', label: 'Roster', icon: FiUsers },
+    { to: '/warden/map', label: 'Live Map', icon: FiMap },
+    { to: '/warden/analytics', label: 'Analytics', icon: FiBarChart2 },
+  ];
 
-      <div className={`space-y-4 ${open ? 'block' : 'hidden'} md:block`}>
+  return (
+    <>
+      {/* ── Desktop Sidebar ── */}
+      <nav className="hidden md:flex flex-col bg-green-700 text-white w-64 min-h-screen p-4">
+        <h1 className="text-2xl font-bold mb-8">Outpass Control</h1>
+
         <div className="mb-6 p-4 bg-green-600 rounded">
           <p className="text-sm">Warden</p>
           <p className="font-semibold">{user?.first_name} {user?.last_name}</p>
         </div>
 
-        <Link
-          to="/warden/approvals"
-          className={`block px-4 py-2 rounded transition ${isActive('/warden/approvals')
-              ? 'bg-green-600'
-              : 'hover:bg-green-600'
-            }`}
-        >
-          Approval Queue
-        </Link>
-
-        <Link
-          to="/warden/roster"
-          className={`block px-4 py-2 rounded transition ${isActive('/warden/roster')
-              ? 'bg-green-600'
-              : 'hover:bg-green-600'
-            }`}
-        >
-          Active Roster
-        </Link>
-
-        <Link
-          to="/warden/map"
-          className={`block px-4 py-2 rounded transition ${isActive('/warden/map')
-              ? 'bg-green-600'
-              : 'hover:bg-green-600'
-            }`}
-        >
-          Live Map
-        </Link>
-
-        <Link
-          to="/warden/analytics"
-          className={`flex items-center gap-2 px-4 py-2 rounded transition ${isActive('/warden/analytics')
-              ? 'bg-green-600'
-              : 'hover:bg-green-600'
-            }`}
-        >
-          <FiBarChart2 size={14} /> Analytics
-        </Link>
+        <div className="space-y-2 flex-1">
+          {links.map((link) => (
+            <Link
+              key={link.to}
+              to={link.to}
+              className={`flex items-center gap-3 px-4 py-2.5 rounded transition ${isActive(link.to) ? 'bg-green-600' : 'hover:bg-green-600'
+                }`}
+            >
+              <link.icon size={16} /> {link.label}
+            </Link>
+          ))}
+        </div>
 
         <button
           onClick={logout}
@@ -74,7 +47,64 @@ export default function WardenNav() {
         >
           <FiLogOut /> Logout
         </button>
+      </nav>
+
+      {/* ── Mobile Top Bar ── */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-green-700 text-white flex items-center justify-between px-4 h-14 shadow-lg">
+        <h1 className="text-lg font-bold">Outpass Control</h1>
+        <div className="flex items-center gap-3">
+          <span className="text-sm opacity-80">{user?.first_name}</span>
+          <button onClick={() => setOpen(!open)} className="p-1">
+            {open ? <FiX size={22} /> : <FiMenu size={22} />}
+          </button>
+        </div>
       </div>
-    </nav>
+
+      {/* ── Mobile Slide-down Menu ── */}
+      {open && (
+        <div className="md:hidden fixed top-14 left-0 right-0 z-40 bg-green-800 text-white shadow-xl">
+          {links.map((link) => (
+            <Link
+              key={link.to}
+              to={link.to}
+              onClick={() => setOpen(false)}
+              className={`flex items-center gap-3 px-6 py-3 border-b border-green-700 transition ${isActive(link.to) ? 'bg-green-900' : 'hover:bg-green-700'
+                }`}
+            >
+              <link.icon size={16} /> {link.label}
+            </Link>
+          ))}
+          <button
+            onClick={() => { setOpen(false); logout(); }}
+            className="w-full flex items-center gap-3 px-6 py-3 text-red-300 hover:bg-green-700 transition"
+          >
+            <FiLogOut size={16} /> Logout
+          </button>
+        </div>
+      )}
+
+      {/* ── Mobile Bottom Tab Bar ── */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 flex shadow-lg">
+        {links.map((link) => (
+          <Link
+            key={link.to}
+            to={link.to}
+            className={`flex-1 flex flex-col items-center justify-center py-2 transition ${isActive(link.to) ? 'text-green-600' : 'text-gray-400'
+              }`}
+          >
+            <link.icon size={20} />
+            <span className="text-xs mt-0.5 font-medium">{link.label}</span>
+          </Link>
+        ))}
+      </div>
+
+      {/* Overlay */}
+      {open && (
+        <div
+          className="md:hidden fixed inset-0 bg-black bg-opacity-30 z-30"
+          onClick={() => setOpen(false)}
+        />
+      )}
+    </>
   );
 }
