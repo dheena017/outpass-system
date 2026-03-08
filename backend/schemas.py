@@ -41,6 +41,15 @@ class TokenData(BaseModel):
     role: Optional[str] = None
 
 
+class PasswordResetRequest(BaseModel):
+    email: EmailStr
+
+
+class PasswordResetConfirm(BaseModel):
+    token: str
+    new_password: str = Field(..., min_length=8, max_length=128)
+
+
 # Student Schemas
 class StudentCreate(UserCreate):
     student_id: str

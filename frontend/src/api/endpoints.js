@@ -24,6 +24,12 @@ export const authAPI = {
   getCurrentUser: () =>
     apiClient.get('/auth/me'),
 
+  requestPasswordReset: (email) =>
+    apiClient.post('/auth/request-password-reset', { email }),
+
+  resetPassword: (token, new_password) =>
+    apiClient.post('/auth/reset-password', { token, new_password }),
+
   logout: () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');

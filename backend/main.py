@@ -15,7 +15,8 @@ from schemas import (
     StudentCreate, StudentResponse,
     WardenCreate, WardenResponse,
     OutpassRequestCreate, OutpassRequestResponse, OutpassRequestUpdate,
-    LocationLogCreate, LocationLogResponse, ActiveStudentLocation
+    LocationLogCreate, LocationLogResponse, ActiveStudentLocation,
+    PasswordResetRequest, PasswordResetConfirm
 )
 from typing import List
 from websocket_manager import manager
@@ -151,6 +152,47 @@ async def login(request: Request, credentials: LoginRequest, db: Session = Depen
         "token_type": "bearer",
         "user": UserResponse.model_validate(user),
     }
+
+
+@app.post("/auth/request-password-reset")
+@limiter.limit("3/minute")
+async def request_password_reset(request: Request, body: PasswordResetRequest, db: Session = Depends(get_db)):
+    """Request a password reset token (mock email)."""
+    user = db.query(User).filter(User.email == body.email).first()
+    if not user:
+        return {"message": "If an account exists, a reset link was generated."}
+    
+    reset_token = create_access_token(
+        data={"sub": str(user.id), "type": "password_reset"}, 
+        expires_delta=timedelta(minutes=15)
+    )
+    
+    return {
+        "message": "If an account exists, a reset link was generated.", 
+        "reset_token": reset_token  # For demo purposes, we return it here
+    }
+
+
+@app.post("/auth/reset-password")
+@limiter.limit("5/minute")
+async def reset_password(request: Request, body: PasswordResetConfirm, db: Session = Depends(get_db)):
+    """Reset password using a token."""
+    try:
+        from auth import decode_token
+        payload = decode_token(body.token)
+        if payload.get("type") != "password_reset":
+            raise HTTPException(status_code=400, detail="Invalid token type")
+        user_id = int(payload.get("sub"))
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid or expired token")
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.password_hash = get_password_hash(body.new_password)
+    db.commit()
+    return {"message": "Password updated successfully"}
 
 
 @app.post("/auth/register-student", response_model=StudentResponse)
