@@ -4,7 +4,8 @@ import { useAuthStore } from '../../store';
 import StatusBadge from '../../components/StatusBadge';
 import LocationTracker from '../../components/LocationTracker';
 import Loading from '../../components/Loading';
-import { FiRefreshCw, FiPlay, FiX, FiCheckCircle, FiTrendingUp, FiCalendar, FiBell, FiList, FiClock, FiAlertCircle } from 'react-icons/fi';
+import { FiRefreshCw, FiPlay, FiX, FiCheckCircle, FiTrendingUp, FiCalendar, FiBell, FiList, FiClock, FiAlertCircle, FiDownload } from 'react-icons/fi';
+import { jsPDF } from 'jspdf';
 import toastService from '../../utils/toastService';
 import { getErrorMessage } from '../../utils/errorMessages';
 
@@ -198,6 +199,61 @@ export default function RequestStatus() {
   const metrics = calculateMetrics();
   const filteredRequests = getFilteredAndSortedRequests();
 
+  const exportToPDF = (request) => {
+    const doc = new jsPDF();
+
+    // Add styling
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(22);
+    doc.text("Official Outpass Document", 105, 20, null, null, "center");
+
+    doc.setFontSize(14);
+    doc.text(`Status: ${request.status.toUpperCase()}`, 105, 30, null, null, "center");
+
+    doc.setLineWidth(0.5);
+    doc.line(20, 35, 190, 35);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(12);
+
+    let y = 45;
+    const lineSpacing = 10;
+
+    const fields = [
+      { label: "Student Name", value: user.full_name },
+      { label: "Student ID", value: user.student_id },
+      { label: "Outpass ID", value: `#${request.id}` },
+      { label: "Destination", value: request.destination },
+      { label: "Reason", value: request.reason },
+      { label: "Departure Time", value: new Date(request.departure_time).toLocaleString() },
+      { label: "Return Time", value: new Date(request.expected_return_time).toLocaleString() },
+    ];
+
+    if (request.actual_return_time) {
+      fields.push({ label: "Actual Return", value: new Date(request.actual_return_time).toLocaleString() });
+    }
+
+    fields.forEach(f => {
+      doc.setFont("helvetica", "bold");
+      doc.text(`${f.label}:`, 20, y);
+      doc.setFont("helvetica", "normal");
+      doc.text(String(f.value), 60, y);
+      y += lineSpacing;
+    });
+
+    if (['approved', 'active', 'closed'].includes(request.status)) {
+      doc.setDrawColor(0, 128, 0); // Green
+      doc.setLineWidth(1);
+      doc.rect(140, 45, 50, 50);
+      doc.setTextColor(0, 128, 0);
+      doc.setFontSize(16);
+      doc.text("VALIDATED", 165, 72, null, null, "center");
+      doc.setTextColor(0, 0, 0);
+    }
+
+    doc.save(`Outpass_${request.id}.pdf`);
+  };
+
   const renderRequestCard = (request, isTimeline = false) => {
     const availableActions = getAvailableActions(request);
     return (
@@ -239,8 +295,8 @@ export default function RequestStatus() {
           </div>
         )}
 
-        {/* Action Buttons */}
-        {availableActions.length > 0 && (
+        {/* Action Buttons & PDF Export */}
+        {(availableActions.length > 0 || ['approved', 'active', 'closed'].includes(request.status)) && (
           <div className="flex flex-col gap-2 mt-4 pt-4 border-t items-start">
             <div className="flex flex-wrap gap-3">
               {availableActions.map((action) => {
@@ -263,6 +319,17 @@ export default function RequestStatus() {
                   </button>
                 );
               })}
+
+              {/* PDF Export Button */}
+              {['approved', 'active', 'closed'].includes(request.status) && (
+                <button
+                  onClick={() => exportToPDF(request)}
+                  className="flex items-center gap-2 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition"
+                >
+                  <FiDownload size={16} />
+                  Download PDF
+                </button>
+              )}
             </div>
             {availableActions.some(a => a.disabled && a.disabledReason) && (
               <p className="text-xs text-amber-600 flex items-center gap-1">

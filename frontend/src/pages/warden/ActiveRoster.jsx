@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { outpassAPI } from '../../api/endpoints';
 import Loading from '../../components/Loading';
 import toastService from '../../utils/toastService';
-import { FiRefreshCw, FiAlertTriangle, FiClock } from 'react-icons/fi';
+import { FiRefreshCw, FiAlertTriangle, FiClock, FiDownload } from 'react-icons/fi';
+import { jsPDF } from 'jspdf';
 
 export default function ActiveRoster() {
   const [activeStudents, setActiveStudents] = useState([]);
@@ -24,11 +25,55 @@ export default function ActiveRoster() {
       setLastRefresh(new Date());
       setError('');
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to fetch active students');
+      setError('Unable to fetch active students roster');
+      toastService.error('Failed to update roster');
     } finally {
       setLoading(false);
     }
   };
+
+  const exportToPDF = (student) => {
+    const doc = new jsPDF();
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(22);
+    doc.text("Official Outpass Document", 105, 20, null, null, "center");
+    doc.setFontSize(14);
+    doc.text(`Status: ACTIVE`, 105, 30, null, null, "center");
+    doc.setLineWidth(0.5);
+    doc.line(20, 35, 190, 35);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(12);
+
+    let y = 45;
+    const lineSpacing = 10;
+
+    const fields = [
+      { label: "Student Name", value: student.student_name },
+      { label: "Student ID", value: student.student_id },
+      { label: "Outpass ID", value: `#${student.outpass_request_id}` },
+      { label: "Destination", value: student.destination },
+      { label: "Departure Time", value: new Date(student.departure_time).toLocaleString() },
+      { label: "Expected Return", value: new Date(student.expected_return_time).toLocaleString() },
+    ];
+
+    fields.forEach(f => {
+      doc.setFont("helvetica", "bold");
+      doc.text(`${f.label}:`, 20, y);
+      doc.setFont("helvetica", "normal");
+      doc.text(String(f.value), 60, y);
+      y += lineSpacing;
+    });
+
+    doc.setDrawColor(0, 128, 0); // Green
+    doc.setLineWidth(1);
+    doc.rect(140, 45, 50, 50);
+    doc.setTextColor(0, 128, 0);
+    doc.setFontSize(16);
+    doc.text("VALIDATED", 165, 72, null, null, "center");
+
+    doc.save(`Outpass_Warden_Export_${student.outpass_request_id}.pdf`);
+  };
+
 
   const handleExpireOverdue = async () => {
     setExpiringLoading(true);
@@ -122,8 +167,9 @@ export default function ActiveRoster() {
                 <th className="px-6 py-3 text-left font-semibold text-gray-700">Student ID</th>
                 <th className="px-6 py-3 text-left font-semibold text-gray-700">Destination</th>
                 <th className="px-6 py-3 text-left font-semibold text-gray-700">Expected Return</th>
-                <th className="px-6 py-3 text-left font-semibold text-gray-700">Status</th>
-                <th className="px-6 py-3 text-left font-semibold text-gray-700">Battery</th>
+                <th className="px-6 py-3 text-left font-semibold text-gray-700 w-32">Status</th>
+                <th className="px-6 py-3 text-left font-semibold text-gray-700 w-32">Battery</th>
+                <th className="px-6 py-3 text-right font-semibold text-gray-700 w-24">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -166,6 +212,15 @@ export default function ActiveRoster() {
                           {student.battery_level !== null && student.battery_level !== undefined ? `${student.battery_level}%` : 'N/A'}
                         </span>
                       </div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <button
+                        onClick={() => exportToPDF(student)}
+                        className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full transition"
+                        title="Download Outpass PDF"
+                      >
+                        <FiDownload size={18} />
+                      </button>
                     </td>
                   </tr>
                 );
