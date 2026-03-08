@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, Polyline, useMap } from 'react-leaflet';
+import MarkerClusterGroup from 'react-leaflet-cluster';
 import L from 'leaflet';
 import { outpassAPI, locationAPI } from '../../api/endpoints';
 import { useAuthStore } from '../../store';
@@ -406,13 +407,13 @@ export default function Map() {
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           />
 
+          {/* Render geometry (lines, circles) OUTSIDE the cluster group */}
           {studentsWithColor.map((student) => {
             if (student.latitude === 0 && student.longitude === 0) return null;
             const isSelected = selectedStudentId === student.student_id;
-            const icon = createStudentIcon(student.student_name, student.isOverdue ? '#ef4444' : student.color, isSelected);
 
             return (
-              <div key={student.student_id}>
+              <div key={`geom-${student.student_id}`}>
                 {/* Route polyline */}
                 {isSelected && routeHistory[student.outpass_request_id]?.length > 0 && (
                   <Polyline
@@ -429,9 +430,23 @@ export default function Map() {
                     pathOptions={{ color: student.color, fillColor: student.color, fillOpacity: 0.08, weight: 1 }}
                   />
                 )}
+              </div>
+            );
+          })}
 
-                {/* Marker */}
+          <MarkerClusterGroup
+            chunkedLoading
+            maxClusterRadius={40}
+            showCoverageOnHover={false}
+          >
+            {studentsWithColor.map((student) => {
+              if (student.latitude === 0 && student.longitude === 0) return null;
+              const isSelected = selectedStudentId === student.student_id;
+              const icon = createStudentIcon(student.student_name, student.isOverdue ? '#ef4444' : student.color, isSelected);
+
+              return (
                 <Marker
+                  key={`marker-${student.student_id}`}
                   position={[student.latitude, student.longitude]}
                   icon={icon}
                   eventHandlers={{ click: () => handleSelectStudent(student) }}
@@ -477,9 +492,9 @@ export default function Map() {
                     </div>
                   </Popup>
                 </Marker>
-              </div>
-            );
-          })}
+              );
+            })}
+          </MarkerClusterGroup>
         </MapContainer>
       </div>
     </div>
