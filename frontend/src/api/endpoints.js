@@ -95,9 +95,3 @@ export const notificationAPI = {
   subscribe: (subscription) => apiClient.post('/notifications/subscribe', subscription),
 };
 
-export const adminAPI = {
-  getWardens: () => apiClient.get('/admin/wardens'),
-  disableWarden: (wardenId) => apiClient.delete(`/admin/wardens/${wardenId}`),
-  enableWarden: (wardenId) => apiClient.patch(`/admin/wardens/${wardenId}/enable`),
-};
-

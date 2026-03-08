@@ -299,20 +299,12 @@ async def register_student(request: Request, student_data: StudentCreate, db: Se
     return StudentResponse.model_validate(student)
 
 
-@app.post("/auth/register-warden", response_model=WardenResponse, tags=["Admin"])
+@app.post("/auth/register-warden", response_model=WardenResponse, tags=["Auth"])
 async def register_warden(
     warden_data: WardenCreate,
-    current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Register a new warden (admin only)."""
-    # Check if current user is admin
-    if current_user["role"] != UserRole.ADMIN:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only admins can register wardens",
-        )
-    
+    """Register a new warden."""
     # Check if user already exists
     if db.query(User).filter(User.email == warden_data.email).first():
         raise HTTPException(
@@ -370,8 +362,8 @@ async def get_warden_analytics(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Aggregate analytics for the warden dashboard. Warden/Admin only."""
-    if current_user["role"] not in [UserRole.WARDEN, UserRole.ADMIN]:
+    """Aggregate analytics for the warden dashboard. Warden only."""
+    if current_user["role"] != UserRole.WARDEN:
         raise HTTPException(status_code=403, detail="Not authorized")
 
     all_requests = db.query(OutpassRequest).all()
@@ -447,7 +439,7 @@ async def get_warden_analytics(
 # ============= CSV Export =============
 from typing import Optional
 
-@app.get("/outpasses/export-csv", tags=["Admin"])
+@app.get("/outpasses/export-csv", tags=["Wardens"])
 async def export_outpasses_csv(
     status_filter: Optional[str] = None,
     start_date: Optional[str] = None,
@@ -455,8 +447,8 @@ async def export_outpasses_csv(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Download outpass records as CSV with optional filters. Warden/Admin only."""
-    if current_user["role"] not in [UserRole.WARDEN, UserRole.ADMIN]:
+    """Download outpass records as CSV with optional filters. Warden only."""
+    if current_user["role"] != UserRole.WARDEN:
         raise HTTPException(status_code=403, detail="Not authorized")
 
     import csv, io
@@ -612,7 +604,7 @@ async def get_pending_requests(
     db: Session = Depends(get_db)
 ):
     """Get all pending outpass requests (Wardens only)."""
-    if current_user["role"] not in [UserRole.WARDEN, UserRole.ADMIN]:
+    if current_user["role"] != UserRole.WARDEN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to view pending requests",
@@ -622,13 +614,13 @@ async def get_pending_requests(
     return requests
 
 
-@app.post("/outpasses/expire-overdue", tags=["Admin"])
+@app.post("/outpasses/expire-overdue", tags=["Wardens"])
 async def expire_overdue_outpasses(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Immediately expire all active outpasses past their expected return time. Warden/Admin only."""
-    if current_user["role"] not in [UserRole.WARDEN, UserRole.ADMIN]:
+    """Immediately expire all active outpasses past their expected return time. Warden only."""
+    if current_user["role"] != UserRole.WARDEN:
         raise HTTPException(status_code=403, detail="Not authorized")
 
     now = datetime.utcnow()
@@ -653,14 +645,14 @@ async def expire_overdue_outpasses(
     return {"message": f"Expired {count} overdue outpass(es)"}
 
 
-@app.post("/outpasses/bulk-action", tags=["Admin"])
+@app.post("/outpasses/bulk-action", tags=["Wardens"])
 async def bulk_outpass_action(
     action_data: dict,
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Bulk approve or reject multiple outpass requests. Warden/Admin only."""
-    if current_user["role"] not in [UserRole.WARDEN, UserRole.ADMIN]:
+    """Bulk approve or reject multiple outpass requests. Warden only."""
+    if current_user["role"] != UserRole.WARDEN:
         raise HTTPException(status_code=403, detail="Not authorized")
 
     ids = action_data.get("ids", [])
@@ -722,7 +714,7 @@ async def update_outpass_status(
     # Determine allowed transitions based on role
     allowed = False
     new_status_str = update_data.status
-    if current_user["role"] in [UserRole.WARDEN, UserRole.ADMIN]:
+    if current_user["role"] == UserRole.WARDEN:
         allowed = True
     elif current_user["role"] == UserRole.STUDENT:
         student = db.query(Student).filter(Student.user_id == current_user["user_id"]).first()
@@ -997,60 +989,8 @@ async def get_active_students_locations(
 
 
 # ============= Admin Endpoints =============
-@app.get("/admin/wardens", response_model=List[WardenResponse], tags=["Admin"])
-async def get_all_wardens(
-    current_user: dict = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """Get all wardens (Admin only)."""
-    if current_user["role"] != UserRole.ADMIN:
-        raise HTTPException(status_code=403, detail="Not authorized")
-    
-    wardens = db.query(Warden).all()
-    return wardens
 
-@app.delete("/admin/wardens/{warden_id}", tags=["Admin"], summary="Disable Warden Account")
-async def disable_warden(
-    warden_id: int,
-    current_user: dict = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """Disable a warden account (Admin only)."""
-    if current_user["role"] != UserRole.ADMIN:
-        raise HTTPException(status_code=403, detail="Not authorized")
-    
-    warden = db.query(Warden).filter(Warden.id == warden_id).first()
-    if not warden:
-        raise HTTPException(status_code=404, detail="Warden not found")
-        
-    user = db.query(User).filter(User.id == warden.user_id).first()
-    if user:
-        user.is_active = False # soft delete / disable
-    
-    db.commit()
-    return {"message": "Warden account disabled successfully"}
-
-@app.patch("/admin/wardens/{warden_id}/enable", tags=["Admin"])
-async def enable_warden(
-    warden_id: int,
-    current_user: dict = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """Enable a warden account (Admin only)."""
-    if current_user["role"] != UserRole.ADMIN:
-        raise HTTPException(status_code=403, detail="Not authorized")
-    
-    warden = db.query(Warden).filter(Warden.id == warden_id).first()
-    if not warden:
-        raise HTTPException(status_code=404, detail="Warden not found")
-        
-    user = db.query(User).filter(User.id == warden.user_id).first()
-    if user:
-        user.is_active = True
-    
-    db.commit()
-    return {"message": "Warden account enabled successfully"}
-
+# Admin endpoints removed
 
 # ============= WebSocket =============
 @app.websocket("/ws/location/{token}")
@@ -1069,8 +1009,8 @@ async def websocket_endpoint(websocket: WebSocket, token: str, db: Session = Dep
         await websocket.close(code=4001, reason="Invalid token")
         return
 
-    # Only wardens and admins can connect
-    if role not in [UserRole.WARDEN, UserRole.ADMIN]:
+    # Only wardens can connect
+    if role != UserRole.WARDEN:
         await websocket.close(code=4003, reason="Unauthorized")
         return
 

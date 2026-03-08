@@ -11,7 +11,6 @@ from database import Base
 class UserRole(str, PyEnum):
     STUDENT = "student"
     WARDEN = "warden"
-    ADMIN = "admin"
 
 
 class OutpassStatus(str, PyEnum):

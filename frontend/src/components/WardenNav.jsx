@@ -18,10 +18,6 @@ export default function WardenNav() {
     { to: '/warden/analytics', label: 'Analytics', icon: FiBarChart2 },
   ];
 
-  if (user?.role === 'admin') {
-    links.push({ to: '/warden/admin', label: 'Super Admin', icon: FiShield });
-  }
-
   return (
     <>
       {/* ── Desktop Sidebar ── */}
