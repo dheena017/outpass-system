@@ -29,6 +29,14 @@ class LoginRequest(BaseModel):
     email: str
     password: str = Field(..., min_length=8, max_length=128)
 
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "email": "student@example.com",
+                "password": "password123"
+            }
+        }
+
 
 class LoginResponse(BaseModel):
     access_token: str

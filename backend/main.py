@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, Depends, status, WebSocket, WebSocketDisconnect, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.responses import StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 from datetime import timedelta, datetime
@@ -117,12 +118,26 @@ def custom_rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded)
         content={"detail": "Too many attempts. Please wait a moment."},
     )
 
+tags_metadata = [
+    {"name": "Status", "description": "API health check and status."},
+    {"name": "Authentication", "description": "Login, efficient password reset, and registration operations."},
+    {"name": "Students", "description": "Student-specific endpoints for profile and status."},
+    {"name": "Wardens", "description": "Warden-specific administrative endpoints."},
+    {"name": "Outpasses", "description": "Core outpass request management: creation, approval, and listing."},
+    {"name": "Location Tracking", "description": "Real-time location logging and retrieval."},
+    {"name": "Analytics", "description": "Dashboard analytics and reporting data."},
+    {"name": "Notifications", "description": "Web Push Notification subscription management."},
+    {"name": "Admin", "description": "System administration tasks."},
+]
+
 # Initialize FastAPI app
 app = FastAPI(
     title=settings.api_title,
+    description="Backend API for the Outpass Tracking System. Manages student requests, warden approvals, and real-time location tracking.",
     version=settings.api_version,
     debug=settings.debug,
     lifespan=lifespan,
+    openapi_tags=tags_metadata,
 )
 
 # Initialize Limiter
@@ -155,14 +170,14 @@ app.add_middleware(
 
 
 # ============= Health Check =============
-@app.get("/health")
+@app.get("/health", tags=["Status"])
 async def health_check():
     """Health check endpoint."""
     return {"status": "healthy", "api": settings.api_title}
 
 
 # ============= Authentication Endpoints =============
-@app.post("/auth/login", response_model=LoginResponse)
+@app.post("/auth/login", response_model=LoginResponse, tags=["Authentication"])
 @limiter.limit("5/minute")
 async def login(request: Request, credentials: LoginRequest, db: Session = Depends(get_db)):
     """Login endpoint for students and wardens."""
@@ -192,7 +207,7 @@ async def login(request: Request, credentials: LoginRequest, db: Session = Depen
     }
 
 
-@app.post("/auth/request-password-reset")
+@app.post("/auth/request-password-reset", tags=["Authentication"])
 @limiter.limit("3/minute")
 async def request_password_reset(request: Request, body: PasswordResetRequest, db: Session = Depends(get_db)):
     """Request a password reset token."""
@@ -215,7 +230,7 @@ async def request_password_reset(request: Request, body: PasswordResetRequest, d
     }
 
 
-@app.post("/auth/reset-password")
+@app.post("/auth/reset-password", tags=["Authentication"])
 @limiter.limit("5/minute")
 async def reset_password(request: Request, body: PasswordResetConfirm, db: Session = Depends(get_db)):
     """Reset password using a token."""
@@ -237,7 +252,7 @@ async def reset_password(request: Request, body: PasswordResetConfirm, db: Sessi
     return {"message": "Password updated successfully"}
 
 
-@app.post("/auth/register-student", response_model=StudentResponse)
+@app.post("/auth/register-student", response_model=StudentResponse, tags=["Authentication"])
 @limiter.limit("3/minute")
 async def register_student(request: Request, student_data: StudentCreate, db: Session = Depends(get_db)):
     """Register a new student."""
@@ -284,7 +299,7 @@ async def register_student(request: Request, student_data: StudentCreate, db: Se
     return StudentResponse.model_validate(student)
 
 
-@app.post("/auth/register-warden", response_model=WardenResponse)
+@app.post("/auth/register-warden", response_model=WardenResponse, tags=["Admin"])
 async def register_warden(
     warden_data: WardenCreate,
     current_user: dict = Depends(get_current_user),
@@ -332,7 +347,7 @@ async def register_warden(
     return WardenResponse.model_validate(warden)
 
 
-@app.get("/auth/me", response_model=UserResponse)
+@app.get("/auth/me", response_model=UserResponse, tags=["Authentication"])
 async def get_current_user_info(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -350,7 +365,7 @@ async def get_current_user_info(
 
 
 # ============= Analytics Endpoint =============
-@app.get("/analytics/warden")
+@app.get("/analytics/warden", tags=["Analytics"])
 async def get_warden_analytics(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -432,7 +447,7 @@ async def get_warden_analytics(
 # ============= CSV Export =============
 from typing import Optional
 
-@app.get("/outpasses/export-csv")
+@app.get("/outpasses/export-csv", tags=["Admin"])
 async def export_outpasses_csv(
     status_filter: Optional[str] = None,
     start_date: Optional[str] = None,
@@ -445,7 +460,6 @@ async def export_outpasses_csv(
         raise HTTPException(status_code=403, detail="Not authorized")
 
     import csv, io
-    from starlette.responses import StreamingResponse
 
     query = (
         db.query(OutpassRequest, Student, User)
@@ -506,7 +520,7 @@ async def export_outpasses_csv(
 
 
 # ============= Outpass Endpoints =============
-@app.get("/outpasses/validate/{request_id}")
+@app.get("/outpasses/validate/{request_id}", tags=["Outpasses"])
 async def validate_outpass(request_id: int, db: Session = Depends(get_db)):
     """Public endpoint for scanning QR codes and verifying pass authenticity."""
     outpass = db.query(OutpassRequest).filter(OutpassRequest.id == request_id).first()
@@ -527,7 +541,7 @@ async def validate_outpass(request_id: int, db: Session = Depends(get_db)):
         "expected_return_time": outpass.expected_return_time
     }
 
-@app.post("/outpasses/request", response_model=OutpassRequestResponse)
+@app.post("/outpasses/request", response_model=OutpassRequestResponse, tags=["Outpasses"])
 async def create_outpass_request(
     request_data: OutpassRequestCreate,
     current_user: dict = Depends(get_current_user),
@@ -572,7 +586,7 @@ async def create_outpass_request(
     return OutpassRequestResponse.model_validate(outpass)
 
 
-@app.get("/outpasses/my-requests", response_model=List[OutpassRequestResponse])
+@app.get("/outpasses/my-requests", response_model=List[OutpassRequestResponse], tags=["Students"])
 async def get_my_outpass_requests(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -592,7 +606,7 @@ async def get_my_outpass_requests(
     return requests
 
 
-@app.get("/outpasses/pending", response_model=List[OutpassRequestResponse])
+@app.get("/outpasses/pending", response_model=List[OutpassRequestResponse], tags=["Outpasses"])
 async def get_pending_requests(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -608,7 +622,7 @@ async def get_pending_requests(
     return requests
 
 
-@app.post("/outpasses/expire-overdue")
+@app.post("/outpasses/expire-overdue", tags=["Admin"])
 async def expire_overdue_outpasses(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -639,7 +653,7 @@ async def expire_overdue_outpasses(
     return {"message": f"Expired {count} overdue outpass(es)"}
 
 
-@app.post("/outpasses/bulk-action")
+@app.post("/outpasses/bulk-action", tags=["Admin"])
 async def bulk_outpass_action(
     action_data: dict,
     current_user: dict = Depends(get_current_user),
@@ -693,7 +707,7 @@ async def bulk_outpass_action(
     }
 
 
-@app.patch("/outpasses/{outpass_id}/status", response_model=OutpassRequestResponse)
+@app.patch("/outpasses/{outpass_id}/status", response_model=OutpassRequestResponse, tags=["Outpasses"])
 async def update_outpass_status(
     outpass_id: int,
     update_data: OutpassRequestUpdate,
@@ -786,7 +800,7 @@ async def update_outpass_status(
     return outpass
 
 
-@app.get("/outpasses/{outpass_id}", response_model=OutpassRequestResponse)
+@app.get("/outpasses/{outpass_id}", response_model=OutpassRequestResponse, tags=["Outpasses"])
 async def get_outpass_request(
     outpass_id: int,
     current_user: dict = Depends(get_current_user),
@@ -806,7 +820,7 @@ async def get_outpass_request(
     return outpass
 
 
-@app.get("/outpasses/active", response_model=List[OutpassRequestResponse])
+@app.get("/outpasses/active", response_model=List[OutpassRequestResponse], tags=["Wardens"])
 async def get_active_outpasses(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -822,7 +836,7 @@ async def get_active_outpasses(
 # ============= Location Tracking Endpoints =============
 from models import LocationLog
 
-@app.post("/location/{request_id}", response_model=LocationLogResponse)
+@app.post("/location/{request_id}", response_model=LocationLogResponse, tags=["Location Tracking"])
 async def submit_location(
     request_id: int,
     location_data: LocationLogCreate,
@@ -878,7 +892,7 @@ async def submit_location(
     return log
 
 
-@app.get("/location/{request_id}/logs", response_model=List[LocationLogResponse])
+@app.get("/location/{request_id}/logs", response_model=List[LocationLogResponse], tags=["Location Tracking"])
 async def get_location_logs(
     request_id: int,
     current_user: dict = Depends(get_current_user),
@@ -901,7 +915,7 @@ async def get_location_logs(
     return logs
 
 
-@app.get("/location/student/{student_id}", response_model=LocationLogResponse)
+@app.get("/location/student/{student_id}", response_model=LocationLogResponse, tags=["Location Tracking"])
 async def get_latest_student_location(
     student_id: int,
     current_user: dict = Depends(get_current_user),
@@ -918,7 +932,7 @@ async def get_latest_student_location(
     return log
 
 
-@app.get("/location/active-students", response_model=List[ActiveStudentLocation])
+@app.get("/location/active-students", response_model=List[ActiveStudentLocation], tags=["Location Tracking"])
 async def get_active_students_locations(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -983,7 +997,7 @@ async def get_active_students_locations(
 
 
 # ============= Admin Endpoints =============
-@app.get("/admin/wardens", response_model=List[WardenResponse])
+@app.get("/admin/wardens", response_model=List[WardenResponse], tags=["Admin"])
 async def get_all_wardens(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -995,7 +1009,7 @@ async def get_all_wardens(
     wardens = db.query(Warden).all()
     return wardens
 
-@app.delete("/admin/wardens/{warden_id}")
+@app.delete("/admin/wardens/{warden_id}", tags=["Admin"], summary="Disable Warden Account")
 async def disable_warden(
     warden_id: int,
     current_user: dict = Depends(get_current_user),
@@ -1015,6 +1029,27 @@ async def disable_warden(
     
     db.commit()
     return {"message": "Warden account disabled successfully"}
+
+@app.patch("/admin/wardens/{warden_id}/enable", tags=["Admin"])
+async def enable_warden(
+    warden_id: int,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Enable a warden account (Admin only)."""
+    if current_user["role"] != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    warden = db.query(Warden).filter(Warden.id == warden_id).first()
+    if not warden:
+        raise HTTPException(status_code=404, detail="Warden not found")
+        
+    user = db.query(User).filter(User.id == warden.user_id).first()
+    if user:
+        user.is_active = True
+    
+    db.commit()
+    return {"message": "Warden account enabled successfully"}
 
 
 # ============= WebSocket =============
@@ -1145,12 +1180,12 @@ def send_web_push(db: Session, user_id: int, payload: dict):
             else:
                 print(f"Web Push Error: {repr(ex)}")
 
-@app.get("/notifications/public-key")
+@app.get("/notifications/public-key", tags=["Notifications"])
 async def get_public_key():
     """Return the VAPID Public Key to the frontend so it can subscribe."""
     return {"public_key": settings.vapid_public_key}
 
-@app.post("/notifications/subscribe")
+@app.post("/notifications/subscribe", tags=["Notifications"])
 async def subscribe_push_notifications(
     sub_data: PushSubscriptionCreate,
     current_user: dict = Depends(get_current_user),

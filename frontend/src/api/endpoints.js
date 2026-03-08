@@ -90,13 +90,14 @@ export const locationAPI = {
     apiClient.get(`/location/student/${studentId}`),
 };
 
-export const adminAPI = {
-  getWardens: () => apiClient.get('/admin/wardens'),
-  disableWarden: (wardenId) => apiClient.delete(`/admin/wardens/${wardenId}`),
-};
-
 export const notificationAPI = {
   getPublicKey: () => apiClient.get('/notifications/public-key'),
   subscribe: (subscription) => apiClient.post('/notifications/subscribe', subscription),
+};
+
+export const adminAPI = {
+  getWardens: () => apiClient.get('/admin/wardens'),
+  disableWarden: (wardenId) => apiClient.delete(`/admin/wardens/${wardenId}`),
+  enableWarden: (wardenId) => apiClient.patch(`/admin/wardens/${wardenId}/enable`),
 };
 
