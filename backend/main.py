@@ -583,7 +583,7 @@ async def get_warden_analytics(
 # ============= CSV Export =============
 from typing import Optional
 
-@app.get("/outpasses/export-csv", tags=["Wardens"])
+@app.get("/outpasses/export-csv", tags=["Wardens"], summary="Generate Reports")
 async def export_outpasses_csv(
     status_filter: Optional[str] = None,
     start_date: Optional[str] = None,
@@ -591,7 +591,11 @@ async def export_outpasses_csv(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Download outpass records as CSV with optional filters. Warden only."""
+    """
+    **Warden Only**: Download spreadsheet of outpass records.
+    
+    Supports filtering by status and date range.
+    """
     if current_user["role"] != UserRole.WARDEN:
         raise HTTPException(status_code=403, detail="Not authorized")
 
@@ -996,12 +1000,14 @@ async def get_outpass_request(
     return outpass
 
 
-@app.get("/outpasses/active", response_model=List[OutpassRequestResponse], tags=["Wardens"])
+@app.get("/outpasses/active", response_model=List[OutpassRequestResponse], tags=["Wardens"], summary="Active Roster")
 async def get_active_outpasses(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get all currently active outpasses (Wardens only)."""
+    """
+    **Warden Only**: Get all students currently outside campus (Active status).
+    """
     if current_user["role"] != UserRole.WARDEN:
         raise HTTPException(status_code=403, detail="Not authorized")
         
@@ -1012,14 +1018,32 @@ async def get_active_outpasses(
 # ============= Location Tracking Endpoints =============
 from models import LocationLog
 
-@app.post("/location/{request_id}", response_model=LocationLogResponse, tags=["Location Tracking"])
+@app.post(
+    "/location/{request_id}",
+    response_model=LocationLogResponse,
+    tags=["Location Tracking"],
+    summary="Log GPS Location",
+    responses={
+        200: {"description": "Location saved successfully."},
+        400: {"description": "Outpass is not active (cannot log)."},
+        403: {"description": "Only the assigned student can log details."},
+        404: {"description": "Request ID not found."}
+    }
+)
 async def submit_location(
     request_id: int,
     location_data: LocationLogCreate,
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Submit a location log for an active outpass request."""
+    """
+    **Student Only**: Background geolocation ping.
+    
+    Used by the frontend to update location every 30-60 seconds.
+    - **latitude/longitude**: Decimal GPS coordinates.
+    - **accuracy**: GPS precision radius in meters.
+    - **battery_level**: Critical for knowing if tracking might stop soon.
+    """
     if current_user["role"] != UserRole.STUDENT:
         raise HTTPException(status_code=403, detail="Only students can submit locations")
         
@@ -1068,13 +1092,28 @@ async def submit_location(
     return log
 
 
-@app.get("/location/{request_id}/logs", response_model=List[LocationLogResponse], tags=["Location Tracking"])
+@app.get(
+    "/location/{request_id}/logs",
+    response_model=List[LocationLogResponse],
+    tags=["Location Tracking"],
+    summary="Trip History",
+    responses={
+        403: {"description": "Access restricted to owner/warden."},
+        404: {"description": "Request not found."}
+    }
+)
 async def get_location_logs(
     request_id: int,
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get all location logs for a specific outpass request."""
+    """
+    **Warden & Student**: Get GPS path for a specific trip.
+    
+    Used to render historical route on map with dotted paths.
+    - Sorted by **newest first** (default).
+    - Can contain thousands of points for long trips.
+    """
     outpass = db.query(OutpassRequest).filter(OutpassRequest.id == request_id).first()
     if not outpass:
         raise HTTPException(status_code=404, detail="Outpass request not found")
@@ -1108,12 +1147,27 @@ async def get_latest_student_location(
     return log
 
 
-@app.get("/location/active-students", response_model=List[ActiveStudentLocation], tags=["Location Tracking"])
+@app.get(
+    "/location/active-students",
+    response_model=List[ActiveStudentLocation],
+    tags=["Location Tracking"],
+    summary="Live Map Data",
+    responses={
+        403: {"description": "Access restricted to Wardens only."},
+        200: {"description": "Array of student locations with metadata."}
+    }
+)
 async def get_active_students_locations(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get the latest known location for all currently active outpasses."""
+    """
+    **Warden Only**: Get latest coordinates for all active students.
+    
+    Used to plot markers on the live dashboard.
+    - Includes **student_name**, **student_id**, and trip **destination**.
+    - Returns **empty list** if no students are currently out.
+    """
     if current_user["role"] != UserRole.WARDEN:
         raise HTTPException(status_code=403, detail="Not authorized")
         
