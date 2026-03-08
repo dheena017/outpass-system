@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { outpassAPI } from '../../api/endpoints';
 import { useAuthStore } from '../../store';
 import StatusBadge from '../../components/StatusBadge';
 import LocationTracker from '../../components/LocationTracker';
 import Loading from '../../components/Loading';
-import { FiRefreshCw, FiPlay, FiX, FiCheckCircle, FiTrendingUp, FiCalendar } from 'react-icons/fi';
+import { FiRefreshCw, FiPlay, FiX, FiCheckCircle, FiTrendingUp, FiCalendar, FiBell, FiList, FiClock } from 'react-icons/fi';
 import toastService from '../../utils/toastService';
 import { getErrorMessage } from '../../utils/errorMessages';
 
@@ -15,17 +15,60 @@ export default function RequestStatus() {
   const [actionLoading, setActionLoading] = useState(null);
   const [filterStatus, setFilterStatus] = useState('all');
   const [sortBy, setSortBy] = useState('date-desc');
+  const [viewMode, setViewMode] = useState('cards'); // 'cards' | 'timeline'
+  const [notifEnabled, setNotifEnabled] = useState(Notification.permission === 'granted');
   const { user } = useAuthStore();
+  const prevStatusRef = useRef({}); // track previous statuses for change detection
 
   useEffect(() => {
     fetchRequests();
   }, [user]);
+
+  // Poll for status changes every 30s
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const response = await outpassAPI.getStudentRequests();
+        const fresh = response.data;
+        // Check for status changes
+        fresh.forEach((req) => {
+          const prev = prevStatusRef.current[req.id];
+          if (prev && prev !== req.status) {
+            sendNotification(req);
+          }
+          prevStatusRef.current[req.id] = req.status;
+        });
+        setRequests(fresh);
+      } catch { /* silent */ }
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const requestNotificationPermission = async () => {
+    if ('Notification' in window) {
+      const perm = await Notification.requestPermission();
+      setNotifEnabled(perm === 'granted');
+    }
+  };
+
+  const sendNotification = (req) => {
+    if (Notification.permission !== 'granted') return;
+    const msgs = {
+      approved: `✅ Your outpass to ${req.destination} was approved!`,
+      rejected: `❌ Your outpass to ${req.destination} was rejected.`,
+      expired: `⏰ Your outpass to ${req.destination} has expired.`,
+    };
+    const body = msgs[req.status] || `Outpass status changed to ${req.status}`;
+    new Notification('Outpass Update', { body, icon: '/vite.svg' });
+  };
 
   const fetchRequests = async () => {
     try {
       setLoading(true);
       const response = await outpassAPI.getStudentRequests();
       setRequests(response.data);
+      // Initialize status tracking for notifications
+      response.data.forEach((r) => { prevStatusRef.current[r.id] = r.status; });
     } catch (err) {
       const errorMsg = getErrorMessage(err);
       setError(errorMsg);
@@ -155,21 +198,113 @@ export default function RequestStatus() {
   const metrics = calculateMetrics();
   const filteredRequests = getFilteredAndSortedRequests();
 
+  const renderRequestCard = (request, isTimeline = false) => {
+    const availableActions = getAvailableActions(request);
+    return (
+      <div
+        key={request.id}
+        className={`bg-white rounded-lg shadow p-6 hover:shadow-lg transition ${isTimeline ? 'w-full text-left' : ''}`}
+      >
+        <div className={`flex justify-between items-start mb-4 ${isTimeline ? 'flex-col gap-2' : ''}`}>
+          <div>
+            <h2 className="text-xl font-bold text-gray-800">{request.destination}</h2>
+            <p className="text-gray-600 text-sm">{request.reason}</p>
+          </div>
+          <StatusBadge status={request.status} />
+        </div>
+
+        <div className={`grid grid-cols-2 gap-4 text-sm text-gray-600 mb-4 ${isTimeline ? 'text-left' : ''}`}>
+          <div>
+            <span className="font-semibold">Departure:</span> <br />
+            {new Date(request.departure_time).toLocaleString()}
+          </div>
+          <div>
+            <span className="font-semibold">Expected Return:</span> <br />
+            {new Date(request.expected_return_time).toLocaleString()}
+          </div>
+          {request.actual_return_time && (
+            <div>
+              <span className="font-semibold">Actual Return:</span> <br />
+              {new Date(request.actual_return_time).toLocaleString()}
+            </div>
+          )}
+        </div>
+
+        {request.rejection_reason && (
+          <div className="mb-4 bg-red-50 border border-red-200 p-3 rounded text-left">
+            <p className="text-sm text-red-700">
+              <span className="font-semibold">Rejection Reason:</span>{' '}
+              {request.rejection_reason}
+            </p>
+          </div>
+        )}
+
+        {/* Action Buttons */}
+        {availableActions.length > 0 && (
+          <div className="flex flex-col gap-2 mt-4 pt-4 border-t items-start">
+            <div className="flex flex-wrap gap-3">
+              {availableActions.map((action) => {
+                const IconComponent = action.icon;
+                const colorClasses = {
+                  blue: 'bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300',
+                  green: 'bg-green-500 hover:bg-green-600 disabled:bg-green-300',
+                  orange: 'bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300',
+                };
+                return (
+                  <button
+                    key={action.status}
+                    onClick={() => handleStatusUpdate(request.id, action.status)}
+                    disabled={actionLoading === request.id || action.disabled}
+                    title={action.disabledReason || ''}
+                    className={`flex items-center gap-2 ${colorClasses[action.color]} disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg transition`}
+                  >
+                    <IconComponent size={16} />
+                    {actionLoading === request.id ? 'Updating...' : action.label}
+                  </button>
+                );
+              })}
+            </div>
+            {availableActions.some(a => a.disabled && a.disabledReason) && (
+              <p className="text-xs text-amber-600 flex items-center gap-1">
+                ⏰ {availableActions.find(a => a.disabled && a.disabledReason)?.disabledReason}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   if (loading) {
     return <Loading message="Loading your requests..." />;
   }
 
   return (
     <div className="p-8">
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-wrap justify-between items-center gap-4 mb-8">
         <h1 className="text-3xl font-bold text-gray-800">My Outpass Requests</h1>
-        <button
-          onClick={fetchRequests}
-          disabled={loading}
-          className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg"
-        >
-          <FiRefreshCw /> Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          {!notifEnabled && (
+            <button
+              onClick={requestNotificationPermission}
+              className="flex items-center gap-2 bg-amber-50 border border-amber-300 text-amber-700 px-3 py-2 rounded-lg text-sm hover:bg-amber-100 transition"
+            >
+              <FiBell size={14} /> Enable Alerts
+            </button>
+          )}
+          {notifEnabled && (
+            <span className="flex items-center gap-1 text-xs text-green-600 px-3 py-2">
+              <FiBell size={14} /> Alerts on
+            </span>
+          )}
+          <button
+            onClick={fetchRequests}
+            disabled={loading}
+            className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg"
+          >
+            <FiRefreshCw /> Refresh
+          </button>
+        </div>
       </div>
 
       {/* Analytics Stats Cards */}
@@ -246,7 +381,7 @@ export default function RequestStatus() {
           </a>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-4 shadow-none">
           {/* Filter and Sort Controls */}
           <div className="bg-white rounded-lg shadow p-4 mb-6 flex flex-col md:flex-row gap-4">
             <div className="flex-1">
@@ -295,84 +430,46 @@ export default function RequestStatus() {
               </button>
             </div>
           </div>
-          {filteredRequests.map((request) => {
-            const availableActions = getAvailableActions(request);
-            return (
-              <div
-                key={request.id}
-                className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition"
+
+          {/* View Toggle */}
+          <div className="flex justify-end mb-4">
+            <div className="bg-white rounded-lg p-1 shadow flex border border-gray-200">
+              <button
+                onClick={() => setViewMode('cards')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-md transition ${viewMode === 'cards' ? 'bg-blue-500 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50'}`}
               >
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h2 className="text-xl font-bold text-gray-800">
-                      {request.destination}
-                    </h2>
-                    <p className="text-gray-600 text-sm">{request.reason}</p>
-                  </div>
-                  <StatusBadge status={request.status} />
-                </div>
+                <FiList size={16} /> Cards
+              </button>
+              <button
+                onClick={() => setViewMode('timeline')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-md transition ${viewMode === 'timeline' ? 'bg-blue-500 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50'}`}
+              >
+                <FiClock size={16} /> Timeline
+              </button>
+            </div>
+          </div>
 
-                <div className="grid grid-cols-2 gap-4 text-sm text-gray-600 mb-4">
-                  <div>
-                    <span className="font-semibold">Departure:</span>{' '}
-                    {new Date(request.departure_time).toLocaleString()}
-                  </div>
-                  <div>
-                    <span className="font-semibold">Expected Return:</span>{' '}
-                    {new Date(request.expected_return_time).toLocaleString()}
-                  </div>
-                  {request.actual_return_time && (
-                    <div>
-                      <span className="font-semibold">Actual Return:</span>{' '}
-                      {new Date(request.actual_return_time).toLocaleString()}
+          {/* Rendering the lists based on ViewMode */}
+          {viewMode === 'cards' ? (
+            <div className="space-y-4">
+              {filteredRequests.map(request => renderRequestCard(request, false))}
+            </div>
+          ) : (
+            <div className="bg-transparent rounded-xl p-4 md:p-8 relative">
+              <div className="absolute left-10 md:left-1/2 top-4 bottom-4 w-1 bg-gray-300 rounded-full" />
+              <div className="space-y-12">
+                {filteredRequests.map((request, idx) => (
+                  <div key={request.id} className="relative flex items-center justify-between flex-col md:flex-row w-full group">
+                    <div className="hidden md:block w-5/12" />
+                    <div className="absolute left-10 md:left-1/2 -ml-2.5 w-6 h-6 rounded-full bg-blue-500 border-4 border-white shadow shadow-blue-200 z-10" />
+                    <div className={`w-full md:w-5/12 pl-24 md:pl-0 ${idx % 2 === 0 ? 'md:pr-12 md:mr-auto' : 'md:pl-12 md:ml-auto md:order-last'}`}>
+                      {renderRequestCard(request, true)}
                     </div>
-                  )}
-                </div>
-
-                {request.rejection_reason && (
-                  <div className="mb-4 bg-red-50 border border-red-200 p-3 rounded">
-                    <p className="text-sm text-red-700">
-                      <span className="font-semibold">Rejection Reason:</span>{' '}
-                      {request.rejection_reason}
-                    </p>
                   </div>
-                )}
-
-                {/* Action Buttons */}
-                {availableActions.length > 0 && (
-                  <div className="flex flex-col gap-2 mt-4 pt-4 border-t">
-                    <div className="flex gap-3">
-                      {availableActions.map((action) => {
-                        const IconComponent = action.icon;
-                        const colorClasses = {
-                          blue: 'bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300',
-                          green: 'bg-green-500 hover:bg-green-600 disabled:bg-green-300',
-                          orange: 'bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300',
-                        };
-                        return (
-                          <button
-                            key={action.status}
-                            onClick={() => handleStatusUpdate(request.id, action.status)}
-                            disabled={actionLoading === request.id || action.disabled}
-                            title={action.disabledReason || ''}
-                            className={`flex items-center gap-2 ${colorClasses[action.color]} disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg transition`}
-                          >
-                            <IconComponent size={16} />
-                            {actionLoading === request.id ? 'Updating...' : action.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {availableActions.some(a => a.disabled && a.disabledReason) && (
-                      <p className="text-xs text-amber-600 flex items-center gap-1">
-                        ⏰ {availableActions.find(a => a.disabled && a.disabledReason)?.disabledReason}
-                      </p>
-                    )}
-                  </div>
-                )}
+                ))}
               </div>
-            );
-          })}
+            </div>
+          )}
 
           {filteredRequests.length === 0 && (
             <div className="bg-white rounded-lg shadow p-8 text-center">

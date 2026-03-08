@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { outpassAPI } from '../../api/endpoints';
 import StatusBadge from '../../components/StatusBadge';
 import Loading from '../../components/Loading';
@@ -18,24 +18,38 @@ export default function ApprovalQueue() {
   const [wardenNotes, setWardenNotes] = useState('');
   const [rejectTarget, setRejectTarget] = useState(null); // null = bulk, else single id
   const [searchQuery, setSearchQuery] = useState('');
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const intervalRef = useRef(null);
 
   useEffect(() => {
     fetchPendingRequests();
   }, []);
 
-  const fetchPendingRequests = async () => {
-    setLoading(true);
+  // Auto-refresh every 30s
+  useEffect(() => {
+    if (autoRefresh) {
+      intervalRef.current = setInterval(() => {
+        fetchPendingRequests(true); // silent refresh
+      }, 30000);
+    }
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [autoRefresh]);
+
+  const fetchPendingRequests = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const response = await outpassAPI.getPendingRequests();
       setRequests(response.data);
-      setSelectedIds(new Set()); // clear selection on refresh
+      if (!silent) setSelectedIds(new Set()); // clear selection on manual refresh
       setError('');
     } catch (err) {
-      const errorMsg = err.response?.data?.detail || 'Failed to fetch requests';
-      setError(errorMsg);
-      toastService.error(errorMsg);
+      if (!silent) {
+        const errorMsg = err.response?.data?.detail || 'Failed to fetch requests';
+        setError(errorMsg);
+        toastService.error(errorMsg);
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -152,13 +166,25 @@ export default function ApprovalQueue() {
             {requests.length} pending request{requests.length !== 1 ? 's' : ''}
           </p>
         </div>
-        <button
-          onClick={fetchPendingRequests}
-          disabled={loading}
-          className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white px-4 py-2 rounded-lg"
-        >
-          <FiRefreshCw className={loading ? 'animate-spin' : ''} /> Refresh
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setAutoRefresh(!autoRefresh)}
+            className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg border transition ${autoRefresh
+              ? 'bg-green-50 border-green-300 text-green-700'
+              : 'bg-gray-50 border-gray-300 text-gray-500'
+              }`}
+          >
+            <span className={`h-2 w-2 rounded-full ${autoRefresh ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+            {autoRefresh ? 'Auto' : 'Paused'}
+          </button>
+          <button
+            onClick={() => fetchPendingRequests()}
+            disabled={loading}
+            className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white px-4 py-2 rounded-lg"
+          >
+            <FiRefreshCw className={loading ? 'animate-spin' : ''} /> Refresh
+          </button>
+        </div>
       </div>
 
       {/* ── Search Bar ── */}
