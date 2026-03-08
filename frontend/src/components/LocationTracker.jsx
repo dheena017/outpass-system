@@ -2,6 +2,17 @@ import { useState, useEffect, useRef } from 'react';
 import { locationAPI } from '../api/endpoints';
 import { FiMapPin, FiAlertTriangle, FiCheck } from 'react-icons/fi';
 import PropTypes from 'prop-types';
+import { MapContainer, TileLayer, Marker, Popup, Circle } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// Fix leaflet marker icons
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
 
 export default function LocationTracker({ activeRequestId }) {
   const watchIdRef = useRef(null);
@@ -25,6 +36,15 @@ export default function LocationTracker({ activeRequestId }) {
         });
       });
     }
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+    };
   }, []);
 
   // Cleanup on unmount
@@ -167,23 +187,53 @@ export default function LocationTracker({ activeRequestId }) {
       )}
 
       {lastLocation && (
-        <div className="bg-gray-50 p-4 rounded space-y-2 text-sm">
-          <div>
-            <span className="font-semibold">Latitude:</span> {lastLocation.latitude.toFixed(6)}
-          </div>
-          <div>
-            <span className="font-semibold">Longitude:</span> {lastLocation.longitude.toFixed(6)}
-          </div>
-          {accuracy && (
-            <div>
-              <span className="font-semibold">Accuracy:</span> ±{accuracy.toFixed(2)}m
+        <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg space-y-4 shadow-inner">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div className="bg-white dark:bg-gray-700 p-2 rounded border border-gray-200 dark:border-gray-600">
+              <span className="font-semibold text-gray-500 dark:text-gray-400 block text-xs uppercase tracking-wider mb-1">Latitude</span>
+              <span className="font-mono text-gray-800 dark:text-gray-200">{lastLocation.latitude.toFixed(6)}</span>
             </div>
-          )}
-          {battery && (
-            <div>
-              <span className="font-semibold">Battery:</span> {battery}%
+            <div className="bg-white dark:bg-gray-700 p-2 rounded border border-gray-200 dark:border-gray-600">
+              <span className="font-semibold text-gray-500 dark:text-gray-400 block text-xs uppercase tracking-wider mb-1">Longitude</span>
+              <span className="font-mono text-gray-800 dark:text-gray-200">{lastLocation.longitude.toFixed(6)}</span>
             </div>
-          )}
+            {accuracy && (
+              <div className="bg-white dark:bg-gray-700 p-2 rounded border border-gray-200 dark:border-gray-600">
+                <span className="font-semibold text-gray-500 dark:text-gray-400 block text-xs uppercase tracking-wider mb-1">Accuracy</span>
+                <span className="font-mono text-gray-800 dark:text-gray-200">±{accuracy.toFixed(1)}m</span>
+              </div>
+            )}
+            {battery && (
+              <div className="bg-white dark:bg-gray-700 p-2 rounded border border-gray-200 dark:border-gray-600">
+                <span className="font-semibold text-gray-500 dark:text-gray-400 block text-xs uppercase tracking-wider mb-1">Battery</span>
+                <span className="font-mono text-gray-800 dark:text-gray-200">{battery}%</span>
+              </div>
+            )}
+          </div>
+
+          {/* Mini Map embedded inside the Location Tracker */}
+          <div className="h-64 md:h-80 w-full rounded-lg overflow-hidden border border-gray-300 dark:border-gray-600 shadow-sm relative z-0">
+            <MapContainer
+              center={[lastLocation.latitude, lastLocation.longitude]}
+              zoom={16}
+              style={{ height: '100%', width: '100%' }}
+            >
+              <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+              <Marker position={[lastLocation.latitude, lastLocation.longitude]}>
+                <Popup>You are here!</Popup>
+              </Marker>
+              {accuracy && (
+                <Circle
+                  center={[lastLocation.latitude, lastLocation.longitude]}
+                  radius={accuracy}
+                  pathOptions={{ color: 'blue', fillColor: 'blue', fillOpacity: 0.2 }}
+                />
+              )}
+            </MapContainer>
+          </div>
         </div>
       )}
 
