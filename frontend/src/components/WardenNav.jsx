@@ -1,11 +1,12 @@
 import { Link, useLocation } from 'react-router-dom';
-import { useAuthStore } from '../store';
-import { FiLogOut, FiMenu, FiX, FiCheckSquare, FiUsers, FiMap, FiBarChart2 } from 'react-icons/fi';
+import { useAuthStore, useThemeStore } from '../store';
+import { FiLogOut, FiMenu, FiX, FiCheckSquare, FiUsers, FiMap, FiBarChart2, FiMoon, FiSun } from 'react-icons/fi';
 import { useState } from 'react';
 
 export default function WardenNav() {
   const [open, setOpen] = useState(false);
   const { logout, user } = useAuthStore();
+  const { dark, toggle: toggleDark } = useThemeStore();
   const location = useLocation();
 
   const isActive = (path) => location.pathname === path;
@@ -42,8 +43,15 @@ export default function WardenNav() {
         </div>
 
         <button
+          onClick={toggleDark}
+          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-500 rounded transition mt-4"
+        >
+          {dark ? <FiSun /> : <FiMoon />} {dark ? 'Light Mode' : 'Dark Mode'}
+        </button>
+
+        <button
           onClick={logout}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 rounded transition mt-8"
+          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 rounded transition mt-2"
         >
           <FiLogOut /> Logout
         </button>
@@ -53,6 +61,9 @@ export default function WardenNav() {
       <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-green-700 text-white flex items-center justify-between px-4 h-14 shadow-lg">
         <h1 className="text-lg font-bold">Outpass Control</h1>
         <div className="flex items-center gap-3">
+          <button onClick={toggleDark} className="p-1 opacity-80 hover:opacity-100">
+            {dark ? <FiSun size={18} /> : <FiMoon size={18} />}
+          </button>
           <span className="text-sm opacity-80">{user?.first_name}</span>
           <button onClick={() => setOpen(!open)} className="p-1">
             {open ? <FiX size={22} /> : <FiMenu size={22} />}

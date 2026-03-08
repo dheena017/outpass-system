@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { outpassAPI } from '../../api/endpoints';
 import StatusBadge from '../../components/StatusBadge';
 import Loading from '../../components/Loading';
-import { FiCheck, FiX, FiRefreshCw, FiCheckSquare, FiSquare, FiMinusSquare } from 'react-icons/fi';
+import { FiCheck, FiX, FiRefreshCw, FiCheckSquare, FiSquare, FiMinusSquare, FiSearch } from 'react-icons/fi';
 import toastService from '../../utils/toastService';
 import { getErrorMessage } from '../../utils/errorMessages';
 
@@ -17,6 +17,7 @@ export default function ApprovalQueue() {
   const [rejectReason, setRejectReason] = useState('');
   const [wardenNotes, setWardenNotes] = useState('');
   const [rejectTarget, setRejectTarget] = useState(null); // null = bulk, else single id
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     fetchPendingRequests();
@@ -127,6 +128,17 @@ export default function ApprovalQueue() {
   const allSelected = requests.length > 0 && selectedIds.size === requests.length;
   const someSelected = selectedIds.size > 0 && selectedIds.size < requests.length;
 
+  // Search filter
+  const filteredRequests = requests.filter((r) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    const name = (r.student_name || '').toLowerCase();
+    const sid = (r.student_id || '').toLowerCase();
+    const dest = (r.destination || '').toLowerCase();
+    const reason = (r.reason || '').toLowerCase();
+    return name.includes(q) || sid.includes(q) || dest.includes(q) || reason.includes(q);
+  });
+
   if (loading) return <Loading message="Loading pending requests..." />;
 
   return (
@@ -147,6 +159,18 @@ export default function ApprovalQueue() {
         >
           <FiRefreshCw className={loading ? 'animate-spin' : ''} /> Refresh
         </button>
+      </div>
+
+      {/* ── Search Bar ── */}
+      <div className="relative mb-4">
+        <FiSearch className="absolute left-3 top-3 text-gray-400" size={16} />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search by name, ID, destination, or reason..."
+          className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm"
+        />
       </div>
 
       {error && (
@@ -209,7 +233,7 @@ export default function ApprovalQueue() {
 
           {/* ── Request Cards ── */}
           <div className="space-y-4">
-            {requests.map((request) => {
+            {filteredRequests.map((request) => {
               const isSelected = selectedIds.has(request.id);
               return (
                 <div

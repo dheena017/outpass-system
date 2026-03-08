@@ -2,7 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { useEffect } from 'react';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { useAuthStore } from './store';
+import { useAuthStore, useThemeStore } from './store';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import StudentDashboard from './pages/student/Dashboard';
@@ -13,10 +13,12 @@ import './index.css';
 
 function App() {
   const { restoreSession, isAuthenticated, user, isInitialized } = useAuthStore();
+  const initTheme = useThemeStore((s) => s.init);
 
   useEffect(() => {
     restoreSession();
-  }, [restoreSession]);
+    initTheme();
+  }, [restoreSession, initTheme]);
 
   // Show loading screen while initializing
   if (!isInitialized) {

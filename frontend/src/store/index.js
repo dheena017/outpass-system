@@ -68,3 +68,19 @@ export const useLocationStore = create((set) => ({
     locations: [...state.locations, location],
   })),
 }));
+
+export const useThemeStore = create((set) => ({
+  dark: localStorage.getItem('theme') === 'dark',
+  toggle: () =>
+    set((state) => {
+      const next = !state.dark;
+      localStorage.setItem('theme', next ? 'dark' : 'light');
+      document.documentElement.classList.toggle('dark', next);
+      return { dark: next };
+    }),
+  init: () => {
+    const isDark = localStorage.getItem('theme') === 'dark';
+    document.documentElement.classList.toggle('dark', isDark);
+    set({ dark: isDark });
+  },
+}));
