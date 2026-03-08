@@ -1,25 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import apiClient from '../../api/client';
 import { outpassAPI, locationAPI } from '../../api/endpoints';
 import { useAuthStore } from '../../store';
 import toastService from '../../utils/toastService';
 import { getErrorMessage } from '../../utils/errorMessages';
 import 'leaflet/dist/leaflet.css';
 
-// ── Haversine formula to calculate distance in meters between two GPS points ──
-function getDistanceMeters(lat1, lng1, lat2, lng2) {
-  const R = 6371000; // Earth radius in meters
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLng = ((lng2 - lng1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-    Math.cos((lat2 * Math.PI) / 180) *
-    Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
+
 
 // ── Palette of distinct colors for student markers ──
 const STUDENT_COLORS = [
@@ -93,7 +81,6 @@ export default function Map() {
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [geofence, setGeofence] = useState(null); // { campus_latitude, campus_longitude, radius_meters }
   const { user } = useAuthStore();
   const wsRef = useRef(null);
   const heartbeatIntervalRef = useRef(null);
@@ -107,7 +94,6 @@ export default function Map() {
   useEffect(() => {
     isUnmounting.current = false;
     fetchActiveStudents();
-    fetchGeofence();
     connectWebSocket();
     return () => {
       isUnmounting.current = true;
@@ -118,14 +104,7 @@ export default function Map() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  const fetchGeofence = async () => {
-    try {
-      const res = await apiClient.get('/config/geofence');
-      setGeofence(res.data);
-    } catch (e) {
-      console.warn('Could not load geofence config:', e);
-    }
-  };
+
 
   const fetchLocationHistory = async (requestId, studentId) => {
     try {
@@ -256,25 +235,11 @@ export default function Map() {
   };
 
   const now = new Date();
-  const studentsWithColor = activeStudents.map((s, i) => {
-    let isOutOfZone = false;
-    let distanceFromCampus = null;
-    if (geofence && s.latitude !== 0 && s.longitude !== 0) {
-      distanceFromCampus = getDistanceMeters(
-        geofence.campus_latitude, geofence.campus_longitude,
-        s.latitude, s.longitude
-      );
-      isOutOfZone = distanceFromCampus > geofence.radius_meters;
-    }
-    return {
-      ...s,
-      color: getStudentColor(i),
-      isOverdue: s.expected_return_time && new Date(s.expected_return_time) < now,
-      isOutOfZone,
-      distanceFromCampus,
-    };
-  });
-  const outOfZoneCount = studentsWithColor.filter(s => s.isOutOfZone).length;
+  const studentsWithColor = activeStudents.map((s, i) => ({
+    ...s,
+    color: getStudentColor(i),
+    isOverdue: s.expected_return_time && new Date(s.expected_return_time) < now,
+  }));
 
   if (loading) {
     return (
@@ -349,11 +314,6 @@ export default function Map() {
                   ? 'No students outside'
                   : `${studentsWithColor.length} student${studentsWithColor.length !== 1 ? 's' : ''} outside`}
               </h2>
-              {outOfZoneCount > 0 && (
-                <p className="text-xs text-orange-600 font-semibold mt-1 flex items-center gap-1">
-                  ⚠️ {outOfZoneCount} outside allowed zone
-                </p>
-              )}
             </div>
 
             {/* Student list */}
@@ -392,11 +352,6 @@ export default function Map() {
                           </p>
                         </div>
                         <div className="flex-shrink-0 text-right">
-                          {student.isOutOfZone && (
-                            <span className="block text-xs font-bold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded mb-0.5">
-                              ⚠ Out of Zone
-                            </span>
-                          )}
                           {student.isOverdue ? (
                             <span className="text-xs font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded">
                               Overdue
@@ -451,26 +406,10 @@ export default function Map() {
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           />
 
-          {/* Geofence boundary circle */}
-          {geofence && (
-            <Circle
-              center={[geofence.campus_latitude, geofence.campus_longitude]}
-              radius={geofence.radius_meters}
-              pathOptions={{
-                color: '#f97316',
-                fillColor: '#fef3c7',
-                fillOpacity: 0.05,
-                weight: 2,
-                dashArray: '10, 6',
-              }}
-            />
-          )}
-
           {studentsWithColor.map((student) => {
             if (student.latitude === 0 && student.longitude === 0) return null;
             const isSelected = selectedStudentId === student.student_id;
-            const markerColor = student.isOutOfZone ? '#f97316' : student.isOverdue ? '#ef4444' : student.color;
-            const icon = createStudentIcon(student.student_name, markerColor, isSelected);
+            const icon = createStudentIcon(student.student_name, student.isOverdue ? '#ef4444' : student.color, isSelected);
 
             return (
               <div key={student.student_id}>
@@ -499,24 +438,14 @@ export default function Map() {
                 >
                   <Popup minWidth={230}>
                     <div className="text-sm space-y-1.5">
-                      <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
                         <div className="h-3 w-3 rounded-full" style={{ backgroundColor: student.color }} />
                         <p className="font-bold text-gray-800">{student.student_name}</p>
-                        {student.isOutOfZone && (
-                          <span className="text-xs font-bold text-orange-600 bg-orange-50 px-1 rounded">Out of Zone</span>
-                        )}
                         {student.isOverdue && (
                           <span className="text-xs font-bold text-red-500 bg-red-50 px-1 rounded">Overdue</span>
                         )}
                       </div>
                       <p className="text-xs text-gray-500">ID: {student.student_id}</p>
-                      {student.distanceFromCampus !== null && (
-                        <p className={`text-xs ${student.isOutOfZone ? 'text-orange-600 font-semibold' : 'text-gray-400'}`}>
-                          📏 {student.distanceFromCampus >= 1000
-                            ? `${(student.distanceFromCampus / 1000).toFixed(1)} km`
-                            : `${Math.round(student.distanceFromCampus)} m`} from campus
-                        </p>
-                      )}
                       <p><span className="font-semibold">Destination:</span> {student.destination}</p>
                       <p><span className="font-semibold">Departure:</span> {new Date(student.departure_time).toLocaleTimeString()}</p>
                       <p>

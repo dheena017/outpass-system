@@ -38,11 +38,6 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8001
 
-    # Geofence — campus center and allowed radius (meters)
-    campus_latitude: float = 13.0125
-    campus_longitude: float = 80.0215
-    geofence_radius_meters: int = 5000  # 5km default
-
     model_config = SettingsConfigDict(
         env_file=str(Path(__file__).resolve().with_name(".env")),
         case_sensitive=False,

@@ -345,17 +345,6 @@ async def get_warden_analytics(
     }
 
 
-# ============= Geofence Config =============
-@app.get("/config/geofence")
-async def get_geofence_config():
-    """Return geofence settings (public — no auth needed for the map to draw it)."""
-    return {
-        "campus_latitude": settings.campus_latitude,
-        "campus_longitude": settings.campus_longitude,
-        "radius_meters": settings.geofence_radius_meters,
-    }
-
-
 # ============= Outpass Endpoints =============
 @app.post("/outpasses/request", response_model=OutpassRequestResponse)
 async def create_outpass_request(
