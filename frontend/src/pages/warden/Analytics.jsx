@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import apiClient from '../../api/client';
 import Loading from '../../components/Loading';
-import { FiRefreshCw, FiUsers, FiCheckCircle, FiXCircle, FiClock, FiTrendingUp, FiAlertCircle } from 'react-icons/fi';
+import { FiRefreshCw, FiUsers, FiCheckCircle, FiXCircle, FiClock, FiTrendingUp, FiAlertCircle, FiDownload } from 'react-icons/fi';
 
 // ── Tiny inline bar chart (no dependencies) ──────────────────────────────────
 function BarChart({ data, labelKey, valueKey, color = '#3b82f6', height = 120 }) {
@@ -123,12 +123,30 @@ export default function Analytics() {
                         <p className="text-xs text-gray-400 mt-1">Updated {lastUpdated.toLocaleTimeString()}</p>
                     )}
                 </div>
-                <button
-                    onClick={fetchAnalytics}
-                    className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm"
-                >
-                    <FiRefreshCw /> Refresh
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={async () => {
+                            try {
+                                const res = await apiClient.get('/outpasses/export-csv', { responseType: 'blob' });
+                                const url = window.URL.createObjectURL(new Blob([res.data]));
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = 'outpass_report.csv';
+                                a.click();
+                                window.URL.revokeObjectURL(url);
+                            } catch { /* silent */ }
+                        }}
+                        className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm"
+                    >
+                        <FiDownload /> Download CSV
+                    </button>
+                    <button
+                        onClick={fetchAnalytics}
+                        className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm"
+                    >
+                        <FiRefreshCw /> Refresh
+                    </button>
+                </div>
             </div>
 
             {/* ── Summary Cards ── */}
