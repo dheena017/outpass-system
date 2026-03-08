@@ -80,3 +80,8 @@ export const locationAPI = {
   getStudentTrack: (studentId) =>
     apiClient.get(`/location/student/${studentId}`),
 };
+
+export const adminAPI = {
+  getWardens: () => apiClient.get('/admin/wardens'),
+  disableWarden: (wardenId) => apiClient.delete(`/admin/wardens/${wardenId}`),
+};

@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuthStore, useThemeStore } from '../store';
-import { FiLogOut, FiMenu, FiX, FiCheckSquare, FiUsers, FiMap, FiBarChart2, FiMoon, FiSun } from 'react-icons/fi';
+import { FiLogOut, FiMenu, FiX, FiCheckSquare, FiUsers, FiMap, FiBarChart2, FiMoon, FiSun, FiShield } from 'react-icons/fi';
 import { useState } from 'react';
 
 export default function WardenNav() {
@@ -17,6 +17,10 @@ export default function WardenNav() {
     { to: '/warden/map', label: 'Live Map', icon: FiMap },
     { to: '/warden/analytics', label: 'Analytics', icon: FiBarChart2 },
   ];
+
+  if (user?.role === 'admin') {
+    links.push({ to: '/warden/admin', label: 'Super Admin', icon: FiShield });
+  }
 
   return (
     <>

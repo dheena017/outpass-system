@@ -843,7 +843,42 @@ async def get_active_students_locations(
     return result
 
 
-# ============= WebSocket Endpoints =============
+# ============= Admin Endpoints =============
+@app.get("/admin/wardens", response_model=List[WardenResponse])
+async def get_all_wardens(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get all wardens (Admin only)."""
+    if current_user["role"] != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    wardens = db.query(Warden).all()
+    return wardens
+
+@app.delete("/admin/wardens/{warden_id}")
+async def disable_warden(
+    warden_id: int,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Disable a warden account (Admin only)."""
+    if current_user["role"] != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    warden = db.query(Warden).filter(Warden.id == warden_id).first()
+    if not warden:
+        raise HTTPException(status_code=404, detail="Warden not found")
+        
+    user = db.query(User).filter(User.id == warden.user_id).first()
+    if user:
+        user.is_active = False # soft delete / disable
+    
+    db.commit()
+    return {"message": "Warden account disabled successfully"}
+
+
+# ============= WebSocket =============
 @app.websocket("/ws/location/{token}")
 async def websocket_endpoint(websocket: WebSocket, token: str, db: Session = Depends(get_db)):
     """
