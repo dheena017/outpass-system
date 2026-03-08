@@ -94,3 +94,9 @@ export const adminAPI = {
   getWardens: () => apiClient.get('/admin/wardens'),
   disableWarden: (wardenId) => apiClient.delete(`/admin/wardens/${wardenId}`),
 };
+
+export const notificationAPI = {
+  getPublicKey: () => apiClient.get('/notifications/public-key'),
+  subscribe: (subscription) => apiClient.post('/notifications/subscribe', subscription),
+};
+

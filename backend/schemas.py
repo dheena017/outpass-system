@@ -201,5 +201,13 @@ class ActiveStudentLocation(BaseModel):
     departure_time: datetime
     expected_return_time: datetime
 
+class PushSubscriptionKeys(BaseModel):
+    p256dh: str
+    auth: str
+
+class PushSubscriptionCreate(BaseModel):
+    endpoint: str
+    keys: PushSubscriptionKeys
+
     class Config:
         from_attributes = True

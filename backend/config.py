@@ -47,6 +47,11 @@ class Settings(BaseSettings):
     mail_from_name: str = "Outpass System"
     mail_starttls: bool = True
     mail_ssl_tls: bool = False
+    
+    # Web Push
+    vapid_public_key: str = ""
+    vapid_private_key: str = ""
+    vapid_claims_email: str = ""
 
     model_config = SettingsConfigDict(
         env_file=str(Path(__file__).resolve().with_name(".env")),

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { outpassAPI } from '../../api/endpoints';
+import { outpassAPI, notificationAPI } from '../../api/endpoints';
 import { useAuthStore } from '../../store';
 import StatusBadge from '../../components/StatusBadge';
 import LocationTracker from '../../components/LocationTracker';
@@ -46,10 +46,57 @@ export default function RequestStatus() {
     return () => clearInterval(interval);
   }, []);
 
+  const urlBase64ToUint8Array = (base64String) => {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; rawData.length > i; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  };
+
   const requestNotificationPermission = async () => {
-    if ('Notification' in window) {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      toastService.error('Push notifications are not supported on this device/browser.');
+      return;
+    }
+
+    try {
       const perm = await Notification.requestPermission();
-      setNotifEnabled(perm === 'granted');
+      if (perm !== 'granted') {
+        toastService.warning('Notification permission denied.');
+        return;
+      }
+
+      // 1. Get Public Key
+      const keyRes = await notificationAPI.getPublicKey();
+      const publicVapidKey = keyRes.data.public_key;
+
+      if (!publicVapidKey) {
+        console.warn('VAPID public key not found on server.');
+        setNotifEnabled(true);
+        return;
+      }
+
+      // 2. Register/Get Service Worker
+      const register = await navigator.serviceWorker.ready;
+
+      // 3. Subscribe
+      const subscription = await register.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
+      });
+
+      // 4. Send to Backend
+      await notificationAPI.subscribe(subscription);
+
+      setNotifEnabled(true);
+      toastService.success('Push notifications enabled successfully!');
+    } catch (err) {
+      console.error('Subscription failed:', err);
+      toastService.error('Failed to enable push notifications.');
     }
   };
 
