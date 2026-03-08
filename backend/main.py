@@ -119,24 +119,74 @@ def custom_rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded)
     )
 
 tags_metadata = [
-    {"name": "Status", "description": "API health check and status."},
-    {"name": "Authentication", "description": "Login, efficient password reset, and registration operations."},
-    {"name": "Students", "description": "Student-specific endpoints for profile and status."},
-    {"name": "Wardens", "description": "Warden-specific administrative endpoints."},
-    {"name": "Outpasses", "description": "Core outpass request management: creation, approval, and listing."},
-    {"name": "Location Tracking", "description": "Real-time location logging and retrieval."},
-    {"name": "Analytics", "description": "Dashboard analytics and reporting data."},
-    {"name": "Notifications", "description": "Web Push Notification subscription management."},
+    {
+        "name": "Status",
+        "description": "✅ **System Health** & Monitoring endpoints.",
+    },
+    {
+        "name": "Authentication",
+        "description": "🔐 **Auth Operations**: Login, Registration, and Password Management.",
+    },
+    {
+        "name": "Students",
+        "description": "🎓 **Student Operations**: Profile management and history access.",
+    },
+    {
+        "name": "Wardens",
+        "description": "🛡️ **Warden Control**: Administrative actions for approvals and rosters.",
+    },
+    {
+        "name": "Outpasses",
+        "description": "📝 **Outpass Workflow**: Request submission, validation, and status updates.",
+    },
+    {
+        "name": "Location Tracking",
+        "description": "📍 **Geo-Tracking**: Real-time location logging and active student monitoring.",
+    },
+    {
+        "name": "Analytics",
+        "description": "📊 **Insights**: Usage statistics and reporting data.",
+    },
+    {
+        "name": "Notifications",
+        "description": "🔔 **Alerts**: Web Push Notification subscription management.",
+    },
 ]
 
 # Initialize FastAPI app
+api_description = """
+# 🎓 Outpass Tracking System API
+
+The **Outpass System API** provides a secure and efficient way to manage student leave requests and monitor safety compliance.
+
+## 🚀 Key Features
+
+* **Bi-Role System**: Distinct workflows for **Students** and **Wardens**.
+* **Real-time Tracking**: Live location updates for active outpasses.
+* **QR Validation**: Secure pass verification system.
+* **Analytics**: Detailed insights into outpass usage and warden responsiveness.
+
+## 👥 User Roles
+
+* **Student**: Request creation, status tracking, location logging.
+* **Warden**: Request approval/rejection, active roster monitoring, analytics.
+"""
+
 app = FastAPI(
-    title=settings.api_title,
-    description="Backend API for the Outpass Tracking System. Manages student requests, warden approvals, and real-time location tracking.",
+    title="Outpass System API",
+    description=api_description,
     version=settings.api_version,
     debug=settings.debug,
     lifespan=lifespan,
     openapi_tags=tags_metadata,
+    contact={
+        "name": "Outpass System Support",
+        "url": "http://localhost:5173",
+        "email": "support@outpass.com",
+    },
+    license_info={
+        "name": "Private License",
+    }
 )
 
 # Initialize Limiter
@@ -987,9 +1037,6 @@ async def get_active_students_locations(
     return result
 
 
-# ============= Admin Endpoints =============
-
-# Admin endpoints removed
 
 # ============= WebSocket =============
 @app.websocket("/ws/location/{token}")
