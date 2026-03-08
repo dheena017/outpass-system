@@ -115,63 +115,112 @@ npm run dev -- --host 0.0.0.0 --port 5174
 
 Frontend will be available at `http://localhost:5174`
 
-## Database Schema
+## 📊 Database Schema
 
-### Users Table
-- `id`: Primary key
-- `email`: Unique email address
-- `username`: Unique username
-- `password_hash`: Hashed password
-- `first_name`, `last_name`: User's full name
-- `role`: 'student' or 'warden'
-- `is_active`: Account status
+The system uses a relational database structure designed for strict role separation and efficient tracking.
 
-### Students Table
-- Extends User with student-specific fields
-- `student_id`: Unique student identifier
-- `phone_number`, `gender`: Personal info
-- `dorm_name`, `room_number`: Hostel details
+### 👤 Users Table
+Core table for authentication and basic profile info.
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | Integer | Primary Key |
+| `email` | String | Unique email address |
+| `username` | String | Unique login handle |
+| `first_name` | String | User's first name |
+| `last_name` | String | User's last name |
+| `password_hash` | String | Bcrypt hashed password |
+| `role` | Enum | `student` or `warden` |
+| `is_active` | Boolean | Account status (default: true) |
 
-### Wardens Table
-- Extends User with warden-specific fields
-- `warden_id`: Unique warden identifier
-- `assigned_dorms`: Array of dorm names they oversee
+### 🎓 Students Table
+Extends the `User` table with academic details.
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | Integer | Primary Key |
+| `user_id` | Integer | Foreign Key to `users.id` |
+| `student_id` | String | University Roll Number (Unique) |
+| `phone_number` | String | Contact number |
+| `gender` | Enum | `Male`, `Female`, `Other` |
+| `dorm_name` | String | Hostel/Block Name |
+| `room_number` | String | Room ID |
+| `enrollment_year` | Integer | Year of joining |
 
-### Outpass Requests Table
-- `id`: Primary key
-- `student_id`: Foreign key to Student
-- `destination`, `reason`: Request details
-- `departure_time`, `expected_return_time`: Schedule
-- `status`: pending, approved, rejected, active, closed, expired
-- `approved_by`: Foreign key to Warden (who approved)
+### 🛡️ Wardens Table
+Extends the `User` table with administrative details.
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | Integer | Primary Key |
+| `user_id` | Integer | Foreign Key to `users.id` |
+| `warden_id` | String | Employee ID (Unique) |
+| `department` | String | Department/Faculty |
+| `assigned_dorms` | JSON | List of dorms managed by this warden |
 
-### Location Logs Table
-- `id`: Primary key
-- `outpass_request_id`: Links to the outpass request
-- `latitude`, `longitude`: GPS coordinates
-- `accuracy`: GPS accuracy in meters
-- `battery_level`: Device battery percentage
+### 📝 Outpass Requests Table
+Central table for managing leave workflows.
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | Integer | Primary Key |
+| `student_id` | Integer | Foreign Key to `students.id` |
+| `destination` | String | Intended location |
+| `reason` | Text | Purpose of leave |
+| `departure_time` | DateTime | Planned exit time |
+| `expected_return` | DateTime | Planned return time |
+| `actual_return` | DateTime | Timestamp when closed |
+| `status` | Enum | `pending`, `approved`, `rejected`, `active`, `closed`, `expired` |
+| `approved_by` | Integer | Foreign Key to `wardens.id` |
+| `warden_notes` | Text | Optional comments by warden |
 
-## API Endpoints
+### 📍 Location Logs Table
+Stores real-time tracking data for active outpasses.
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | Integer | Primary Key |
+| `outpass_id` | Integer | FK to `outpass_requests.id` |
+| `latitude` | Float | GPS Latitude |
+| `longitude` | Float | GPS Longitude |
+| `accuracy` | Float | GPS Accuracy (meters) |
+| `battery_level` | Integer | Device battery % |
+| `timestamp` | DateTime | Log creation time |
 
-### Authentication
-- `POST /auth/login` - Login
-- `POST /auth/register-student` - Register student
-- `POST /auth/register-warden` - Register warden
-- `GET /auth/me` - Get current user
+## 🚀 API Endpoints
 
-### Outpass Management
-- `POST /outpass/requests` - Submit new request
-- `GET /outpass/students/{id}/requests` - Get student's requests
-- `GET /outpass/requests/{id}` - Get specific request
-- `GET /outpass/requests/status/pending` - Get pending requests
-- `PUT /outpass/requests/{id}/approve` - Approve request
-- `PUT /outpass/requests/{id}/reject` - Reject request
-- `GET /outpass/active-students` - Get active students
+### 🔐 Authentication
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| `POST` | `/auth/login` | Authenticate user & get JWT token | No |
+| `POST` | `/auth/register-student` | Register a new student account | No |
+| `POST` | `/auth/register-warden` | Register a new warden account | No |
+| `POST` | `/auth/request-password-reset`| Request password reset email | No |
+| `POST` | `/auth/reset-password` | Reset password using token | No |
+| `GET` | `/auth/me` | Get current user profile | Yes |
 
-### Location Tracking
-- `POST /location/{request_id}` - Submit location
-- `GET /location/{request_id}/logs` - Get location history
+### 📝 Outpass Management
+| Method | Endpoint | Description | Role |
+|--------|----------|-------------|------|
+| `POST` | `/outpasses/request` | Submit new outpass request | Student |
+| `GET` | `/outpasses/my-requests` | Get all requests for logged-in student | Student |
+| `GET` | `/outpasses/{id}` | Get specific request details | Both |
+| `GET` | `/outpasses/pending` | Get all pending requests | Warden |
+| `GET` | `/outpasses/active` | Get all currently active outpasses | Warden |
+| `PATCH` | `/outpasses/{id}/status` | Approve/Reject/Close request | Warden/Student |
+| `POST` | `/outpasses/bulk-action` | Bulk approve/reject requests | Warden |
+| `GET` | `/outpasses/validate/{id}` | Public QR code validation | Public |
+| `GET` | `/outpasses/export-csv` | Download records as CSV | Warden |
+
+### 📍 Location Tracking
+| Method | Endpoint | Description | Role |
+|--------|----------|-------------|------|
+| `POST` | `/location/{request_id}` | Submit GPS location log | Student |
+| `GET` | `/location/{request_id}/logs` | Get location history for a trip | Both |
+| `GET` | `/location/active-students` | Get latest location of ALL active students | Warden |
+| `GET` | `/location/student/{id}` | Get latest location of specific student | Warden |
+| `WS` | `/ws/location/{token}` | WebSocket for live map updates | Warden |
+
+### 🔔 Notifications & Analytics
+| Method | Endpoint | Description | Role |
+|--------|----------|-------------|------|
+| `GET` | `/analytics/warden` | Get dashboard statistics | Warden |
+| `POST` | `/notifications/subscribe` | Subscribe to push notifications | Both |
 
 ## Development Phases
 

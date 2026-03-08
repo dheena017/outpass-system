@@ -157,36 +157,53 @@ tags_metadata = [
 api_description = """
 # 🎓 Outpass Tracking System API
 
-The **Outpass System API** provides a secure and efficient way to manage student leave requests and monitor safety compliance.
+The **Outpass System API** provides a secure and efficient backend for managing student leave requests, approvals, and real-time location monitoring.
 
 ## 🚀 Key Features
 
-* **Bi-Role System**: Distinct workflows for **Students** and **Wardens**.
-* **Real-time Tracking**: Live location updates for active outpasses.
-* **QR Validation**: Secure pass verification system.
-* **Analytics**: Detailed insights into outpass usage and warden responsiveness.
+| Feature | Description |
+| :--- | :--- |
+| **🔐 Role-Based Access** | Secure JWT authentication for **Students** and **Wardens**. |
+| **📝 Outpass Workflow** | End-to-end management: Request → Approve → Active → Closed. |
+| **📍 Live Tracking** | Real-time GPS location updates for active outpasses. |
+| **🛡️ Geo-Fencing** | Alerts when students deviate from approved destinations (Planned). |
+| **📊 Analytics** | Insightful dashboards for wardens to monitor trends. |
 
-## 👥 User Roles
+## 👥 User Roles & Permissions
 
-* **Student**: Request creation, status tracking, location logging.
-* **Warden**: Request approval/rejection, active roster monitoring, analytics.
+* **Student** (`UserRole.STUDENT`)
+    * Request new outpasses.
+    * View personal history.
+    * Log real-time location during active trips.
+* **Warden** (`UserRole.WARDEN`)
+    * Approve/Reject pending requests.
+    * View active student map.
+    * Access analytics and reports.
+
+## 🛠️ Tech Stack
+* **Framework**: [FastAPI](https://fastapi.tiangolo.com/) (Python)
+* **Database**: PostgreSQL + SQLAlchemy
+* **Validation**: Pydantic V2
 """
 
 app = FastAPI(
     title="Outpass System API",
     description=api_description,
     version=settings.api_version,
+    summary="Student Safety & Outpass Management Platform",
+    terms_of_service="http://example.com/terms/",
+    contact={
+        "name": "System Admin",
+        "url": "http://localhost:5173/contact",
+        "email": "admin@outpass.system",
+    },
+    license_info={
+        "name": "MIT License",
+        "url": "https://opensource.org/licenses/MIT",
+    },
     debug=settings.debug,
     lifespan=lifespan,
     openapi_tags=tags_metadata,
-    contact={
-        "name": "Outpass System Support",
-        "url": "http://localhost:5173",
-        "email": "support@outpass.com",
-    },
-    license_info={
-        "name": "Private License",
-    }
 )
 
 # Initialize Limiter
@@ -226,10 +243,15 @@ async def health_check():
 
 
 # ============= Authentication Endpoints =============
-@app.post("/auth/login", response_model=LoginResponse, tags=["Authentication"])
+@app.post("/auth/login", response_model=LoginResponse, tags=["Authentication"], summary="User Login")
 @limiter.limit("5/minute")
 async def login(request: Request, credentials: LoginRequest, db: Session = Depends(get_db)):
-    """Login endpoint for students and wardens."""
+    """
+    **All Users**: Authenticate to receive an access token.
+    
+    - **email**: Registered email address
+    - **password**: Account password
+    """
     user = db.query(User).filter(User.email == credentials.email).first()
     
     if not user or not verify_password(credentials.password, user.password_hash):
@@ -256,10 +278,14 @@ async def login(request: Request, credentials: LoginRequest, db: Session = Depen
     }
 
 
-@app.post("/auth/request-password-reset", tags=["Authentication"])
+@app.post("/auth/request-password-reset", tags=["Authentication"], summary="Forgot Password")
 @limiter.limit("3/minute")
 async def request_password_reset(request: Request, body: PasswordResetRequest, db: Session = Depends(get_db)):
-    """Request a password reset token."""
+    """
+    Request a password reset token via email.
+    
+    - **email**: The email associated with your account
+    """
     user = db.query(User).filter(User.email == body.email).first()
     if not user:
         return {"message": "If an account exists, a reset link was generated."}
@@ -279,10 +305,15 @@ async def request_password_reset(request: Request, body: PasswordResetRequest, d
     }
 
 
-@app.post("/auth/reset-password", tags=["Authentication"])
+@app.post("/auth/reset-password", tags=["Authentication"], summary="Confirm Reset")
 @limiter.limit("5/minute")
 async def reset_password(request: Request, body: PasswordResetConfirm, db: Session = Depends(get_db)):
-    """Reset password using a token."""
+    """
+    Reset your password using the token received in email.
+    
+    - **token**: The secure processing token
+    - **new_password**: Your new password
+    """
     try:
         from auth import decode_token
         payload = decode_token(body.token)
@@ -301,10 +332,16 @@ async def reset_password(request: Request, body: PasswordResetConfirm, db: Sessi
     return {"message": "Password updated successfully"}
 
 
-@app.post("/auth/register-student", response_model=StudentResponse, tags=["Authentication"])
+@app.post("/auth/register-student", response_model=StudentResponse, tags=["Authentication"], summary="Register New Student")
 @limiter.limit("3/minute")
 async def register_student(request: Request, student_data: StudentCreate, db: Session = Depends(get_db)):
-    """Register a new student."""
+    """
+    Create a new student account.
+    
+    - **username**: Unique campus ID
+    - **email**: Institutional email
+    - **password**: Secure password
+    """
     # Check if user already exists
     if db.query(User).filter(User.email == student_data.email).first():
         raise HTTPException(
@@ -348,12 +385,17 @@ async def register_student(request: Request, student_data: StudentCreate, db: Se
     return StudentResponse.model_validate(student)
 
 
-@app.post("/auth/register-warden", response_model=WardenResponse, tags=["Auth"])
+@app.post("/auth/register-warden", response_model=WardenResponse, tags=["Authentication"], summary="Register New Warden")
 async def register_warden(
     warden_data: WardenCreate,
     db: Session = Depends(get_db)
 ):
-    """Register a new warden."""
+    """
+    Create a new warden account.
+    
+    - **department**: Faculty department
+    - **assigned_dorms**: List of blocks managed
+    """
     # Check if user already exists
     if db.query(User).filter(User.email == warden_data.email).first():
         raise HTTPException(
@@ -406,12 +448,12 @@ async def get_current_user_info(
 
 
 # ============= Analytics Endpoint =============
-@app.get("/analytics/warden", tags=["Analytics"])
+@app.get("/analytics/warden", tags=["Analytics"], summary="Warden Dashboard Stats")
 async def get_warden_analytics(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Aggregate analytics for the warden dashboard. Warden only."""
+    """Aggregate analytics for the warden dashboard."""
     if current_user["role"] != UserRole.WARDEN:
         raise HTTPException(status_code=403, detail="Not authorized")
 
@@ -561,9 +603,13 @@ async def export_outpasses_csv(
 
 
 # ============= Outpass Endpoints =============
-@app.get("/outpasses/validate/{request_id}", tags=["Outpasses"])
+@app.get("/outpasses/validate/{request_id}", tags=["Outpasses"], summary="Public QR Validator")
 async def validate_outpass(request_id: int, db: Session = Depends(get_db)):
-    """Public endpoint for scanning QR codes and verifying pass authenticity."""
+    """
+    **Public**: Verify if an outpass is valid.
+    
+    Used by QR Code scanners on the mobile app.
+    """
     outpass = db.query(OutpassRequest).filter(OutpassRequest.id == request_id).first()
     if not outpass:
         raise HTTPException(status_code=404, detail="Outpass not found")
@@ -582,13 +628,19 @@ async def validate_outpass(request_id: int, db: Session = Depends(get_db)):
         "expected_return_time": outpass.expected_return_time
     }
 
-@app.post("/outpasses/request", response_model=OutpassRequestResponse, tags=["Outpasses"])
+@app.post("/outpasses/request", response_model=OutpassRequestResponse, tags=["Outpasses"], summary="Submit Leave Request")
 async def create_outpass_request(
     request_data: OutpassRequestCreate,
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Create a new outpass request (students only)."""
+    """
+    **Student Only**: Submit a new outpass application.
+    
+    - **destination**: Where you are going
+    - **reason**: Purpose of visit
+    - **dates**: Departure and expected return
+    """
     # Check if user is a student
     if current_user["role"] != UserRole.STUDENT:
         raise HTTPException(
@@ -627,12 +679,12 @@ async def create_outpass_request(
     return OutpassRequestResponse.model_validate(outpass)
 
 
-@app.get("/outpasses/my-requests", response_model=List[OutpassRequestResponse], tags=["Students"])
+@app.get("/outpasses/my-requests", response_model=List[OutpassRequestResponse], tags=["Students"], summary="Get My History")
 async def get_my_outpass_requests(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get all outpass requests for the currently logged-in student."""
+    """**Student Only**: Retrieve full history of your outpass requests."""
     if current_user["role"] != UserRole.STUDENT:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -647,12 +699,12 @@ async def get_my_outpass_requests(
     return requests
 
 
-@app.get("/outpasses/pending", response_model=List[OutpassRequestResponse], tags=["Outpasses"])
+@app.get("/outpasses/pending", response_model=List[OutpassRequestResponse], tags=["Wardens"], summary="Pending Approvals")
 async def get_pending_requests(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get all pending outpass requests (Wardens only)."""
+    """**Warden Only**: List all requests awaiting approval."""
     if current_user["role"] != UserRole.WARDEN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -694,13 +746,18 @@ async def expire_overdue_outpasses(
     return {"message": f"Expired {count} overdue outpass(es)"}
 
 
-@app.post("/outpasses/bulk-action", tags=["Wardens"])
+@app.post("/outpasses/bulk-action", tags=["Wardens"], summary="Bulk Approve/Reject")
 async def bulk_outpass_action(
     action_data: dict,
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Bulk approve or reject multiple outpass requests. Warden only."""
+    """
+    **Warden Only**: Process multiple approvals/rejections at once.
+    
+    - **ids**: List of Outpass Request IDs
+    - **action**: 'approved' or 'rejected'
+    """
     if current_user["role"] != UserRole.WARDEN:
         raise HTTPException(status_code=403, detail="Not authorized")
 
@@ -748,14 +805,19 @@ async def bulk_outpass_action(
     }
 
 
-@app.patch("/outpasses/{outpass_id}/status", response_model=OutpassRequestResponse, tags=["Outpasses"])
+@app.patch("/outpasses/{outpass_id}/status", response_model=OutpassRequestResponse, tags=["Outpasses"], summary="Update Status")
 async def update_outpass_status(
     outpass_id: int,
     update_data: OutpassRequestUpdate,
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Approve or reject an outpass request (Wardens only)."""
+    """
+    **Warden & Student**: Change the status of an outpass.
+    
+    - **Wardens**: Can Approve or Reject.
+    - **Students**: Can change from Approved -> Active (Departure) and Active -> Closed (Return).
+    """
     outpass = db.query(OutpassRequest).filter(OutpassRequest.id == outpass_id).first()
     if not outpass:
         raise HTTPException(status_code=404, detail="Outpass request not found")
