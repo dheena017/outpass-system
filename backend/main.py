@@ -181,6 +181,17 @@ The **Outpass System API** provides a secure and efficient backend for managing 
     * View active student map.
     * Access analytics and reports.
 
+## ⚠️ Response Codes
+
+| Code | Meaning |
+| :--- | :--- |
+| **200** | Success |
+| **400** | Bad Request (Validation failure) |
+| **401** | Unauthorized (Login required) |
+| **403** | Forbidden (Role mismatch) |
+| **404** | Resource Not Found |
+| **422** | Unprocessable Entity (Schema mismatch) |
+
 ## 🛠️ Tech Stack
 * **Framework**: [FastAPI](https://fastapi.tiangolo.com/) (Python)
 * **Database**: PostgreSQL + SQLAlchemy
@@ -233,7 +244,12 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all headers
 )
 
-
+# ============= Root Redirect =============
+@app.get("/", include_in_schema=False)
+async def root():
+    """Redirect root to API documentation."""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/docs")
 
 
 # ============= Health Check =============
@@ -271,7 +287,16 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-@app.post("/auth/login", response_model=LoginResponse, tags=["Authentication"], summary="User Login")
+@app.post(
+    "/auth/login",
+    response_model=LoginResponse,
+    tags=["Authentication"],
+    summary="User Login",
+    responses={
+        401: {"description": "Incorrect email or password"},
+        403: {"description": "Account is disabled or inactive"}
+    }
+)
 @limiter.limit("5/minute")
 async def login(request: Request, credentials: LoginRequest, db: Session = Depends(get_db)):
     """
@@ -656,7 +681,17 @@ async def validate_outpass(request_id: int, db: Session = Depends(get_db)):
         "expected_return_time": outpass.expected_return_time
     }
 
-@app.post("/outpasses/request", response_model=OutpassRequestResponse, tags=["Outpasses"], summary="Submit Leave Request")
+@app.post(
+    "/outpasses/request",
+    response_model=OutpassRequestResponse,
+    tags=["Outpasses"],
+    summary="Submit Leave Request",
+    responses={
+        400: {"description": "Return time is before departure."},
+        403: {"description": "Only students are authorized."},
+        404: {"description": "Student profile not found."}
+    }
+)
 async def create_outpass_request(
     request_data: OutpassRequestCreate,
     current_user: dict = Depends(get_current_user),
@@ -833,7 +868,17 @@ async def bulk_outpass_action(
     }
 
 
-@app.patch("/outpasses/{outpass_id}/status", response_model=OutpassRequestResponse, tags=["Outpasses"], summary="Update Status")
+@app.patch(
+    "/outpasses/{outpass_id}/status",
+    response_model=OutpassRequestResponse,
+    tags=["Outpasses"],
+    summary="Update Status",
+    responses={
+        400: {"description": "Invalid status transition."},
+        403: {"description": "Unauthorized for this action."},
+        404: {"description": "Outpass request not found."}
+    }
+)
 async def update_outpass_status(
     outpass_id: int,
     update_data: OutpassRequestUpdate,
