@@ -115,6 +115,7 @@ class OutpassRequestCreate(BaseModel):
 class OutpassRequestUpdate(BaseModel):
     status: str
     rejection_reason: Optional[str] = None
+    warden_notes: Optional[str] = None
 
     class Config:
         json_schema_extra = {
@@ -137,6 +138,7 @@ class OutpassRequestResponse(BaseModel):
     status: str
     approval_time: Optional[datetime]
     rejection_reason: Optional[str]
+    warden_notes: Optional[str] = None
     actual_return_time: Optional[datetime]
     created_at: datetime
 

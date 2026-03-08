@@ -102,6 +102,7 @@ class OutpassRequest(Base):
     approved_by = Column(Integer, ForeignKey("wardens.id"), nullable=True)
     approval_time = Column(DateTime(timezone=True), nullable=True)
     rejection_reason = Column(Text, nullable=True)
+    warden_notes = Column(Text, nullable=True)  # Private note by warden on approve/reject
     actual_return_time = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

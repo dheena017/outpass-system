@@ -345,6 +345,17 @@ async def get_warden_analytics(
     }
 
 
+# ============= Geofence Config =============
+@app.get("/config/geofence")
+async def get_geofence_config():
+    """Return geofence settings (public — no auth needed for the map to draw it)."""
+    return {
+        "campus_latitude": settings.campus_latitude,
+        "campus_longitude": settings.campus_longitude,
+        "radius_meters": settings.geofence_radius_meters,
+    }
+
+
 # ============= Outpass Endpoints =============
 @app.post("/outpasses/request", response_model=OutpassRequestResponse)
 async def create_outpass_request(
@@ -498,6 +509,10 @@ async def bulk_outpass_action(
         else:
             outpass.status = OutpassStatus.REJECTED
             outpass.rejection_reason = rejection_reason
+        # Save warden notes for both approve and reject
+        notes = action_data.get("warden_notes", "")
+        if notes:
+            outpass.warden_notes = notes
         success_ids.append(outpass_id)
 
     db.commit()
@@ -570,8 +585,12 @@ async def update_outpass_status(
         warden = db.query(Warden).filter(Warden.user_id == current_user["user_id"]).first()
         if warden:
             outpass.approved_by = warden.id
+        if update_data.warden_notes:
+            outpass.warden_notes = update_data.warden_notes
     elif new_status == OutpassStatus.REJECTED:
         outpass.rejection_reason = update_data.rejection_reason
+        if update_data.warden_notes:
+            outpass.warden_notes = update_data.warden_notes
     elif new_status == OutpassStatus.CLOSED:
         outpass.actual_return_time = now_utc
         

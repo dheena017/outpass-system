@@ -15,6 +15,7 @@ export default function ApprovalQueue() {
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
+  const [wardenNotes, setWardenNotes] = useState('');
   const [rejectTarget, setRejectTarget] = useState(null); // null = bulk, else single id
 
   useEffect(() => {
@@ -39,9 +40,10 @@ export default function ApprovalQueue() {
 
   // ── Single actions ──
   const handleApprove = async (requestId) => {
+    const notes = prompt('Add a note (optional):') || '';
     setActionLoading(requestId);
     try {
-      await outpassAPI.approveRequest(requestId);
+      await outpassAPI.approveRequest(requestId, notes);
       setRequests(prev => prev.filter(r => r.id !== requestId));
       setSelectedIds(prev => { const n = new Set(prev); n.delete(requestId); return n; });
       toastService.success('✅ Request approved');
@@ -55,6 +57,7 @@ export default function ApprovalQueue() {
   const openRejectModal = (targetId) => {
     setRejectTarget(targetId); // null = bulk
     setRejectReason('');
+    setWardenNotes('');
     setRejectModalOpen(true);
   };
 
@@ -69,7 +72,7 @@ export default function ApprovalQueue() {
       // Single reject
       setActionLoading(rejectTarget);
       try {
-        await outpassAPI.rejectRequest(rejectTarget, rejectReason);
+        await outpassAPI.rejectRequest(rejectTarget, rejectReason, wardenNotes);
         setRequests(prev => prev.filter(r => r.id !== rejectTarget));
         setSelectedIds(prev => { const n = new Set(prev); n.delete(rejectTarget); return n; });
         toastService.success('❌ Request rejected');
@@ -83,6 +86,7 @@ export default function ApprovalQueue() {
       await executeBulkAction('rejected', rejectReason);
     }
     setRejectReason('');
+    setWardenNotes('');
   };
 
   // ── Bulk actions ──
@@ -158,8 +162,8 @@ export default function ApprovalQueue() {
         <>
           {/* ── Bulk Action Toolbar ── */}
           <div className={`flex items-center gap-3 px-4 py-3 rounded-lg mb-4 border transition-all ${selectedIds.size > 0
-              ? 'bg-blue-50 border-blue-200'
-              : 'bg-gray-50 border-gray-200'
+            ? 'bg-blue-50 border-blue-200'
+            : 'bg-gray-50 border-gray-200'
             }`}>
             {/* Select-all checkbox */}
             <button
@@ -212,8 +216,8 @@ export default function ApprovalQueue() {
                   key={request.id}
                   onClick={() => toggleSelect(request.id)}
                   className={`bg-white rounded-lg shadow p-6 cursor-pointer transition border-2 ${isSelected
-                      ? 'border-blue-400 bg-blue-50 shadow-md'
-                      : 'border-transparent hover:shadow-lg hover:border-gray-200'
+                    ? 'border-blue-400 bg-blue-50 shadow-md'
+                    : 'border-transparent hover:shadow-lg hover:border-gray-200'
                     }`}
                 >
                   <div className="flex justify-between items-start mb-4">
@@ -285,6 +289,14 @@ export default function ApprovalQueue() {
               placeholder="e.g. Insufficient reason provided, exam period..."
               rows={3}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 resize-none"
+            />
+            <label className="block text-xs text-gray-500 mt-3 mb-1">Private Note (optional — only visible to wardens)</label>
+            <textarea
+              value={wardenNotes}
+              onChange={e => setWardenNotes(e.target.value)}
+              placeholder="e.g. Repeated offender, contact parent, etc."
+              rows={2}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 resize-none bg-gray-50"
             />
             <div className="flex gap-3 mt-4">
               <button

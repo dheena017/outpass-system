@@ -43,11 +43,11 @@ export const outpassAPI = {
   getPendingRequests: () =>
     apiClient.get('/outpasses/pending'),
 
-  approveRequest: (requestId) =>
-    apiClient.patch(`/outpasses/${requestId}/status`, { status: 'approved' }),
+  approveRequest: (requestId, wardenNotes = '') =>
+    apiClient.patch(`/outpasses/${requestId}/status`, { status: 'approved', warden_notes: wardenNotes || undefined }),
 
-  rejectRequest: (requestId, rejection_reason) =>
-    apiClient.patch(`/outpasses/${requestId}/status`, { status: 'rejected', rejection_reason }),
+  rejectRequest: (requestId, rejection_reason, wardenNotes = '') =>
+    apiClient.patch(`/outpasses/${requestId}/status`, { status: 'rejected', rejection_reason, warden_notes: wardenNotes || undefined }),
 
   getActiveOutpasses: () =>
     apiClient.get('/outpasses/active'),
@@ -61,11 +61,12 @@ export const outpassAPI = {
   expireOverdue: () =>
     apiClient.post('/outpasses/expire-overdue'),
 
-  bulkAction: (ids, action, rejectionReason) =>
+  bulkAction: (ids, action, rejectionReason, wardenNotes = '') =>
     apiClient.post('/outpasses/bulk-action', {
       ids,
       action,
       rejection_reason: rejectionReason,
+      warden_notes: wardenNotes || undefined,
     }),
 };
 
