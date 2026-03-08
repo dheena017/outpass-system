@@ -27,6 +27,44 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 
+from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
+
+mail_conf = ConnectionConfig(
+    MAIL_USERNAME=settings.mail_username,
+    MAIL_PASSWORD=settings.mail_password,
+    MAIL_FROM=settings.mail_from,
+    MAIL_PORT=settings.mail_port,
+    MAIL_SERVER=settings.mail_server,
+    MAIL_FROM_NAME=settings.mail_from_name,
+    MAIL_STARTTLS=settings.mail_starttls,
+    MAIL_SSL_TLS=settings.mail_ssl_tls,
+    USE_CREDENTIALS=bool(settings.mail_username),
+    VALIDATE_CERTS=True
+)
+
+async def send_reset_email(email: str, token: str):
+    """Sends the reset email using fastapi-mail, or mocks it via terminal if unconfigured."""
+    if not settings.mail_username or not settings.mail_password:
+        print(f"\n\n{'='*40}")
+        print(f"✉️ MOCK EMAIL SENT (SMTP Not Configured)")
+        print(f"To: {email}")
+        print(f"Subject: Password Reset Token")
+        print(f"Token: {token}")
+        print(f"{'='*40}\n\n")
+        return
+
+    message = MessageSchema(
+        subject="Outpass System: Password Reset",
+        recipients=[email],
+        body=f"You requested a password reset. Your reset token is:\n\n{token}\n\nPaste this token directly into the app to reset your password. It expires in 15 minutes.",
+        subtype=MessageType.plain
+    )
+    fm = FastMail(mail_conf)
+    try:
+        await fm.send_message(message)
+    except Exception as e:
+        print(f"Failed to send email: {e}")
+
 # Create tables
 Base.metadata.create_all(bind=engine)
 
@@ -157,7 +195,7 @@ async def login(request: Request, credentials: LoginRequest, db: Session = Depen
 @app.post("/auth/request-password-reset")
 @limiter.limit("3/minute")
 async def request_password_reset(request: Request, body: PasswordResetRequest, db: Session = Depends(get_db)):
-    """Request a password reset token (mock email)."""
+    """Request a password reset token."""
     user = db.query(User).filter(User.email == body.email).first()
     if not user:
         return {"message": "If an account exists, a reset link was generated."}
@@ -167,9 +205,13 @@ async def request_password_reset(request: Request, body: PasswordResetRequest, d
         expires_delta=timedelta(minutes=15)
     )
     
+    # Send the email!
+    await send_reset_email(user.email, reset_token)
+    
     return {
         "message": "If an account exists, a reset link was generated.", 
-        "reset_token": reset_token  # For demo purposes, we return it here
+        # Optional: Hide this in production, but useful if they don't have SMTP yet!
+        "reset_token": reset_token if not settings.mail_username else None
     }
 
 
@@ -464,6 +506,27 @@ async def export_outpasses_csv(
 
 
 # ============= Outpass Endpoints =============
+@app.get("/outpasses/validate/{request_id}")
+async def validate_outpass(request_id: int, db: Session = Depends(get_db)):
+    """Public endpoint for scanning QR codes and verifying pass authenticity."""
+    outpass = db.query(OutpassRequest).filter(OutpassRequest.id == request_id).first()
+    if not outpass:
+        raise HTTPException(status_code=404, detail="Outpass not found")
+        
+    student = db.query(Student).filter(Student.id == outpass.student_id).first()
+    user = db.query(User).filter(User.id == student.user_id).first()
+    
+    return {
+        "id": outpass.id,
+        "valid": outpass.status in [OutpassStatus.APPROVED, OutpassStatus.ACTIVE],
+        "status": outpass.status,
+        "student_name": f"{user.first_name} {user.last_name}",
+        "student_id": student.student_id,
+        "destination": outpass.destination,
+        "departure_time": outpass.departure_time,
+        "expected_return_time": outpass.expected_return_time
+    }
+
 @app.post("/outpasses/request", response_model=OutpassRequestResponse)
 async def create_outpass_request(
     request_data: OutpassRequestCreate,

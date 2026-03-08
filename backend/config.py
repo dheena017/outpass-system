@@ -38,6 +38,16 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8001
 
+    # Email server (fastapi-mail)
+    mail_username: str = ""
+    mail_password: str = ""
+    mail_from: str = "noreply@outpass.com"
+    mail_port: int = 587
+    mail_server: str = "smtp.gmail.com"
+    mail_from_name: str = "Outpass System"
+    mail_starttls: bool = True
+    mail_ssl_tls: bool = False
+
     model_config = SettingsConfigDict(
         env_file=str(Path(__file__).resolve().with_name(".env")),
         case_sensitive=False,

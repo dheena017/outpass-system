@@ -37,6 +37,9 @@ export const authAPI = {
 };
 
 export const outpassAPI = {
+  validatePass: (id) =>
+    apiClient.get(`/outpasses/validate/${id}`),
+
   submitRequest: (requestData) =>
     apiClient.post('/outpasses/request', requestData),
 

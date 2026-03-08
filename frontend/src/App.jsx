@@ -7,6 +7,7 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import StudentDashboard from './pages/student/Dashboard';
 import WardenDashboard from './pages/warden/Dashboard';
+import ValidatePass from './pages/ValidatePass';
 import ProtectedRoute from './components/ProtectedRoute';
 import Loading from './components/Loading';
 import './index.css';
@@ -42,6 +43,7 @@ function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/validate/:id" element={<ValidatePass />} />
 
         {/* Student Routes */}
         <Route

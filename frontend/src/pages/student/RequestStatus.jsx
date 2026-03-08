@@ -6,6 +6,7 @@ import LocationTracker from '../../components/LocationTracker';
 import Loading from '../../components/Loading';
 import { FiRefreshCw, FiPlay, FiX, FiCheckCircle, FiTrendingUp, FiCalendar, FiBell, FiList, FiClock, FiAlertCircle, FiDownload } from 'react-icons/fi';
 import { jsPDF } from 'jspdf';
+import { QRCodeCanvas } from 'qrcode.react';
 import toastService from '../../utils/toastService';
 import { getErrorMessage } from '../../utils/errorMessages';
 
@@ -266,7 +267,19 @@ export default function RequestStatus() {
             <h2 className="text-xl font-bold text-gray-800">{request.destination}</h2>
             <p className="text-gray-600 text-sm">{request.reason}</p>
           </div>
-          <StatusBadge status={request.status} />
+          <div className="flex flex-col items-end gap-2">
+            <StatusBadge status={request.status} />
+            {['approved', 'active', 'closed'].includes(request.status) && (
+              <div className="bg-white p-1 rounded-md shadow-sm border border-gray-100 mt-2">
+                <QRCodeCanvas
+                  value={`${window.location.origin}/validate/${request.id}`}
+                  size={64}
+                  level="M"
+                />
+                <p className="text-[10px] text-center text-gray-500 font-mono mt-1 pt-1 border-t px-1 font-bold">SCAN ME</p>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className={`grid grid-cols-2 gap-4 text-sm text-gray-600 mb-4 ${isTimeline ? 'text-left' : ''}`}>
