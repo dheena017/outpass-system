@@ -4,7 +4,7 @@ import { useAuthStore } from '../../store';
 import StatusBadge from '../../components/StatusBadge';
 import LocationTracker from '../../components/LocationTracker';
 import Loading from '../../components/Loading';
-import { FiRefreshCw, FiPlay, FiX, FiCheckCircle, FiTrendingUp, FiCalendar, FiBell, FiList, FiClock } from 'react-icons/fi';
+import { FiRefreshCw, FiPlay, FiX, FiCheckCircle, FiTrendingUp, FiCalendar, FiBell, FiList, FiClock, FiAlertCircle } from 'react-icons/fi';
 import toastService from '../../utils/toastService';
 import { getErrorMessage } from '../../utils/errorMessages';
 
@@ -455,18 +455,74 @@ export default function RequestStatus() {
               {filteredRequests.map(request => renderRequestCard(request, false))}
             </div>
           ) : (
-            <div className="bg-transparent rounded-xl p-4 md:p-8 relative">
-              <div className="absolute left-10 md:left-1/2 top-4 bottom-4 w-1 bg-gray-300 rounded-full" />
+            <div className="bg-transparent rounded-xl p-4 md:py-12 md:px-8 relative overflow-hidden">
+              <div className="absolute left-10 md:left-1/2 top-0 bottom-0 w-0.5 bg-gray-200 dark:bg-gray-700" />
               <div className="space-y-12">
-                {filteredRequests.map((request, idx) => (
-                  <div key={request.id} className="relative flex items-center justify-between flex-col md:flex-row w-full group">
-                    <div className="hidden md:block w-5/12" />
-                    <div className="absolute left-10 md:left-1/2 -ml-2.5 w-6 h-6 rounded-full bg-blue-500 border-4 border-white shadow shadow-blue-200 z-10" />
-                    <div className={`w-full md:w-5/12 pl-24 md:pl-0 ${idx % 2 === 0 ? 'md:pr-12 md:mr-auto' : 'md:pl-12 md:ml-auto md:order-last'}`}>
-                      {renderRequestCard(request, true)}
+                {filteredRequests.map((request, idx) => {
+                  const isLeft = idx % 2 === 0;
+
+                  // Determine timeline node color and icon based on status
+                  let circleColor = 'bg-gray-400 shadow-gray-200 dark:shadow-gray-800';
+                  let icon = <FiClock size={16} className="text-white" />;
+                  if (request.status === 'approved') { circleColor = 'bg-blue-500 shadow-blue-200 dark:shadow-blue-900'; icon = <FiCheckCircle size={16} className="text-white" />; }
+                  else if (request.status === 'active') { circleColor = 'bg-indigo-500 shadow-indigo-200 dark:shadow-indigo-900'; icon = <FiPlay size={16} className="text-white" />; }
+                  else if (request.status === 'closed') { circleColor = 'bg-green-500 shadow-green-200 dark:shadow-green-900'; icon = <FiCheckCircle size={16} className="text-white" />; }
+                  else if (request.status === 'rejected') { circleColor = 'bg-red-500 shadow-red-200 dark:shadow-red-900'; icon = <FiX size={16} className="text-white" />; }
+                  else if (request.status === 'expired') { circleColor = 'bg-orange-500 shadow-orange-200 dark:shadow-orange-900'; icon = <FiAlertCircle size={16} className="text-white" />; }
+
+                  return (
+                    <div key={request.id} className="relative flex justify-between items-center w-full group">
+
+                      {/* Left Side Container (Desktop) */}
+                      <div className="hidden md:flex w-[45%] justify-end relative">
+                        {isLeft ? (
+                          <div className="w-full relative">
+                            {/* Card pointing right */}
+                            <div className="absolute top-6 -right-2 w-4 h-4 bg-white dark:bg-gray-800 rotate-45 border-r border-t border-transparent z-0 shadow-[2px_-2px_2px_0_rgba(0,0,0,0.02)]" />
+                            <div className="relative z-10 w-full">{renderRequestCard(request, true)}</div>
+                          </div>
+                        ) : (
+                          <div className="text-right pr-6 w-full mt-6">
+                            <span className="text-sm font-bold text-gray-500 uppercase tracking-wider block">
+                              {new Date(request.departure_time).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </span>
+                            <span className="text-xs text-gray-400">
+                              {new Date(request.departure_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Timeline Node */}
+                      <div className="absolute left-10 md:left-1/2 -ml-[22px] md:-ml-[22px] w-11 h-11 flex items-center justify-center rounded-full border-[3px] border-white dark:border-gray-900 z-20 shadow-lg bg-white dark:bg-gray-900">
+                        <div className={`w-full h-full rounded-full flex items-center justify-center transition-transform group-hover:scale-110 duration-300 ${circleColor} shadow-md`}>
+                          {icon}
+                        </div>
+                      </div>
+
+                      {/* Right Side Container (Desktop) */}
+                      <div className="w-full md:w-[45%] pl-24 md:pl-0 relative flex justify-start">
+                        {!isLeft ? (
+                          <div className="w-full relative md:pl-4">
+                            {/* Card pointing left (Desktop only) */}
+                            <div className="hidden md:block absolute top-6 left-2 w-4 h-4 bg-white dark:bg-gray-800 rotate-45 border-l border-b border-transparent z-0 shadow-[-2px_2px_2px_0_rgba(0,0,0,0.02)]" />
+                            <div className="relative z-10 w-full">{renderRequestCard(request, true)}</div>
+                          </div>
+                        ) : (
+                          <div className="hidden md:block text-left pl-10 w-full mt-6">
+                            <span className="text-sm font-bold text-gray-500 uppercase tracking-wider block">
+                              {new Date(request.departure_time).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </span>
+                            <span className="text-xs text-gray-400">
+                              {new Date(request.departure_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
