@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import apiClient from '../../api/client';
 import Loading from '../../components/Loading';
-import { FiRefreshCw, FiUsers, FiCheckCircle, FiXCircle, FiClock, FiTrendingUp, FiAlertCircle, FiDownload } from 'react-icons/fi';
+import { FiRefreshCw, FiUsers, FiCheckCircle, FiXCircle, FiClock, FiTrendingUp, FiAlertCircle, FiDownload, FiX } from 'react-icons/fi';
 
 // ── Tiny inline bar chart (no dependencies) ──────────────────────────────────
 function BarChart({ data, labelKey, valueKey, color = '#3b82f6', height = 120 }) {
@@ -82,6 +82,12 @@ export default function Analytics() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [lastUpdated, setLastUpdated] = useState(null);
+    const [showExportModal, setShowExportModal] = useState(false);
+    const [exportFilters, setExportFilters] = useState({
+        status: '',
+        start_date: '',
+        end_date: ''
+    });
 
     useEffect(() => {
         fetchAnalytics();
@@ -112,8 +118,29 @@ export default function Analytics() {
     const { summary, top_destinations, requests_by_day, peak_hours } = data;
     const maxDest = top_destinations.length > 0 ? top_destinations[0].count : 1;
 
+    const handleExport = async (e) => {
+        e.preventDefault();
+        try {
+            const params = new URLSearchParams();
+            if (exportFilters.status) params.append('status_filter', exportFilters.status);
+            if (exportFilters.start_date) params.append('start_date', exportFilters.start_date);
+            if (exportFilters.end_date) params.append('end_date', exportFilters.end_date);
+
+            const queryString = params.toString() ? `?${params.toString()}` : '';
+            const res = await apiClient.get(`/outpasses/export-csv${queryString}`, { responseType: 'blob' });
+
+            const url = window.URL.createObjectURL(new Blob([res.data]));
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `outpass_report${queryString ? '_filtered' : ''}.csv`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+            setShowExportModal(false);
+        } catch { /* silent */ }
+    };
+
     return (
-        <div className="p-8 space-y-8">
+        <div className="p-8 space-y-8 relative">
 
             {/* ── Header ── */}
             <div className="flex flex-wrap justify-between items-center gap-4">
@@ -125,20 +152,10 @@ export default function Analytics() {
                 </div>
                 <div className="flex gap-2">
                     <button
-                        onClick={async () => {
-                            try {
-                                const res = await apiClient.get('/outpasses/export-csv', { responseType: 'blob' });
-                                const url = window.URL.createObjectURL(new Blob([res.data]));
-                                const a = document.createElement('a');
-                                a.href = url;
-                                a.download = 'outpass_report.csv';
-                                a.click();
-                                window.URL.revokeObjectURL(url);
-                            } catch { /* silent */ }
-                        }}
+                        onClick={() => setShowExportModal(true)}
                         className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm"
                     >
-                        <FiDownload /> Download CSV
+                        <FiDownload /> Export CSV
                     </button>
                     <button
                         onClick={fetchAnalytics}
@@ -225,6 +242,63 @@ export default function Analytics() {
                 )}
             </div>
 
+            {/* ── Export Modal ── */}
+            {showExportModal && (
+                <div className="fixed inset-0 bg-black/50 flex flex-col items-center justify-center z-[100] p-4">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-6 text-gray-800 dark:text-gray-200">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-xl font-bold flex items-center gap-2"><FiDownload className="text-green-500" /> Export Options</h2>
+                            <button onClick={() => setShowExportModal(false)} className="text-gray-400 hover:text-gray-600">
+                                <FiX size={24} />
+                            </button>
+                        </div>
+                        <form onSubmit={handleExport} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Status</label>
+                                <select
+                                    className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    value={exportFilters.status}
+                                    onChange={(e) => setExportFilters({ ...exportFilters, status: e.target.value })}
+                                >
+                                    <option value="">All Statuses</option>
+                                    <option value="pending">Pending</option>
+                                    <option value="approved">Approved</option>
+                                    <option value="rejected">Rejected</option>
+                                    <option value="active">Active</option>
+                                    <option value="closed">Closed</option>
+                                    <option value="expired">Expired</option>
+                                </select>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Start Date</label>
+                                    <input
+                                        type="date"
+                                        className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        value={exportFilters.start_date}
+                                        onChange={(e) => setExportFilters({ ...exportFilters, start_date: e.target.value })}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">End Date</label>
+                                    <input
+                                        type="date"
+                                        className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        value={exportFilters.end_date}
+                                        onChange={(e) => setExportFilters({ ...exportFilters, end_date: e.target.value })}
+                                        min={exportFilters.start_date}
+                                    />
+                                </div>
+                            </div>
+                            <div className="pt-4 flex justify-end">
+                                <button type="submit" className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors">
+                                    Download CSV
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

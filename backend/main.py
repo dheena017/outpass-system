@@ -346,25 +346,49 @@ async def get_warden_analytics(
 
 
 # ============= CSV Export =============
+from typing import Optional
+
 @app.get("/outpasses/export-csv")
 async def export_outpasses_csv(
+    status_filter: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Download all outpass records as CSV. Warden/Admin only."""
+    """Download outpass records as CSV with optional filters. Warden/Admin only."""
     if current_user["role"] not in [UserRole.WARDEN, UserRole.ADMIN]:
         raise HTTPException(status_code=403, detail="Not authorized")
 
     import csv, io
     from starlette.responses import StreamingResponse
 
-    outpasses = (
+    query = (
         db.query(OutpassRequest, Student, User)
         .join(Student, OutpassRequest.student_id == Student.id)
         .join(User, Student.user_id == User.id)
-        .order_by(OutpassRequest.created_at.desc())
-        .all()
     )
+
+    if status_filter:
+        query = query.filter(OutpassRequest.status == status_filter)
+
+    if start_date:
+        try:
+            # Assumes YYYY-MM-DD
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+            query = query.filter(OutpassRequest.created_at >= start_dt)
+        except ValueError:
+            pass
+
+    if end_date:
+        try:
+            # Assumes YYYY-MM-DD, add 1 day to include the whole end_date
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
+            query = query.filter(OutpassRequest.created_at < end_dt)
+        except ValueError:
+            pass
+
+    outpasses = query.order_by(OutpassRequest.created_at.desc()).all()
 
     buf = io.StringIO()
     writer = csv.writer(buf)
