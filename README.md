@@ -123,7 +123,7 @@ Frontend will be available at `http://localhost:5174`
 - `username`: Unique username
 - `password_hash`: Hashed password
 - `first_name`, `last_name`: User's full name
-- `role`: 'student', 'warden', or 'admin'
+- `role`: 'student' or 'warden'
 - `is_active`: Account status
 
 ### Students Table
@@ -157,7 +157,7 @@ Frontend will be available at `http://localhost:5174`
 ### Authentication
 - `POST /auth/login` - Login
 - `POST /auth/register-student` - Register student
-- `POST /auth/register-warden` - Register warden (admin only)
+- `POST /auth/register-warden` - Register warden
 - `GET /auth/me` - Get current user
 
 ### Outpass Management

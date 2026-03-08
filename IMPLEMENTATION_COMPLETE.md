@@ -395,7 +395,7 @@ PGPASSWORD=postgres psql -h localhost -U postgres -d outpass_db \
 2. **Push Notifications**: Real-time alerts for wardens
 3. **SMS/Email**: Notification system for approvals
 4. **Advanced Analytics**: Charts and graphs for request trends
-5. **Admin Dashboard**: System-wide analytics and user management
+5. **Analytics Dashboard**: System-wide analytics.
 6. **QR Code**: Quick check-in/check-out at gates
 7. **Multi-language**: i18n support for regional languages
 

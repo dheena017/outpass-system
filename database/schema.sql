@@ -2,7 +2,7 @@
 -- PostgreSQL
 
 -- Create enum types
-CREATE TYPE user_role AS ENUM ('student', 'warden', 'admin');
+CREATE TYPE user_role AS ENUM ('student', 'warden');
 CREATE TYPE outpass_status AS ENUM ('pending', 'approved', 'rejected', 'active', 'closed', 'expired');
 CREATE TYPE gender AS ENUM ('male', 'female', 'other');
 

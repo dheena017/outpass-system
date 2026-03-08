@@ -127,7 +127,6 @@ tags_metadata = [
     {"name": "Location Tracking", "description": "Real-time location logging and retrieval."},
     {"name": "Analytics", "description": "Dashboard analytics and reporting data."},
     {"name": "Notifications", "description": "Web Push Notification subscription management."},
-    {"name": "Admin", "description": "System administration tasks."},
 ]
 
 # Initialize FastAPI app
@@ -803,7 +802,7 @@ async def get_outpass_request(
     if not outpass:
         raise HTTPException(status_code=404, detail="Outpass request not found")
         
-    # Check permissions (student can only see their own, wardens/admins can see any)
+    # Check permissions (student can only see their own, wardens can see any)
     if current_user["role"] == UserRole.STUDENT:
         student = db.query(Student).filter(Student.user_id == current_user["user_id"]).first()
         if not student or outpass.student_id != student.id:
@@ -818,7 +817,7 @@ async def get_active_outpasses(
     db: Session = Depends(get_db)
 ):
     """Get all currently active outpasses (Wardens only)."""
-    if current_user["role"] not in [UserRole.WARDEN, UserRole.ADMIN]:
+    if current_user["role"] != UserRole.WARDEN:
         raise HTTPException(status_code=403, detail="Not authorized")
         
     requests = db.query(OutpassRequest).filter(OutpassRequest.status == OutpassStatus.ACTIVE).order_by(OutpassRequest.departure_time.desc()).all()
@@ -900,7 +899,7 @@ async def get_location_logs(
         student = db.query(Student).filter(Student.user_id == current_user["user_id"]).first()
         if not student or outpass.student_id != student.id:
             raise HTTPException(status_code=403, detail="Not authorized")
-    elif current_user["role"] not in [UserRole.WARDEN, UserRole.ADMIN]:
+    elif current_user["role"] != UserRole.WARDEN:
         raise HTTPException(status_code=403, detail="Not authorized")
         
     logs = db.query(LocationLog).filter(LocationLog.outpass_request_id == request_id).order_by(LocationLog.timestamp.desc()).all()
@@ -914,7 +913,7 @@ async def get_latest_student_location(
     db: Session = Depends(get_db)
 ):
     """Get the latest location log for a specific student."""
-    if current_user["role"] not in [UserRole.WARDEN, UserRole.ADMIN]:
+    if current_user["role"] != UserRole.WARDEN:
         raise HTTPException(status_code=403, detail="Not authorized")
         
     log = db.query(LocationLog).filter(LocationLog.student_id == student_id).order_by(LocationLog.timestamp.desc()).first()
@@ -930,7 +929,7 @@ async def get_active_students_locations(
     db: Session = Depends(get_db)
 ):
     """Get the latest known location for all currently active outpasses."""
-    if current_user["role"] not in [UserRole.WARDEN, UserRole.ADMIN]:
+    if current_user["role"] != UserRole.WARDEN:
         raise HTTPException(status_code=403, detail="Not authorized")
         
     # Get all active outpasses with student and user data joined to avoid N+1
@@ -1110,7 +1109,7 @@ def send_web_push(db: Session, user_id: int, payload: dict):
                 },
                 data=json.dumps(payload),
                 vapid_private_key=settings.vapid_private_key,
-                vapid_claims={"sub": settings.vapid_claims_email or "mailto:admin@outpass.com"}
+                vapid_claims={"sub": settings.vapid_claims_email or "mailto:system@outpass.com"}
             )
         except WebPushException as ex:
             if ex.response and ex.response.status_code in [404, 410]:

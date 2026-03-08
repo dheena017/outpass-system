@@ -256,7 +256,6 @@ warden_emails = [
     ("warden@test.com", "TestPassword123!"),
     ("warden@srm.com", "Warden@123"),
     ("warden1@college.edu", "warden12345"),
-    ("admin@outpass.com", "admin12345"),
 ]
 
 for email, pwd in warden_emails:
@@ -270,12 +269,31 @@ for email, pwd in warden_emails:
         pass
 
 if not warden_token:
-    # Register a warden directly in DB (we'll need to create one — use student token, will fail, that's ok)
-    print(f"  {YELLOW}⚠ No existing warden found. Creating one via direct DB insert...{RESET}")
-    # We can't register warden without admin token, so let's try to use the DB directly
-    # For now, note the failure
-    log_test("Warden Login (no valid account found)", "POST", "/auth/login", 401, 200,
-             {"note": "No warden credentials worked. Create a warden account first."})
+    # Register a warden directly using the public endpoint
+    print(f"  {YELLOW}⚠ No existing warden found. Registering a new one...{RESET}")
+    reg_w_email = "new_warden@test.com"
+    req_body = {
+        "email": reg_w_email,
+        "username": "newwarden", 
+        "password": "Password123!",
+        "first_name": "New",
+        "last_name": "Warden",
+        "phone_number": "1234567890",
+        "warden_id": "W001",
+        "department": "CSE",
+        "assigned_dorms": ["Block A"]
+    }
+    try:
+        r = requests.post(f"{BASE_URL}/auth/register-warden", json=req_body)
+        if r.status_code == 200:
+             # Login with new creds
+             r_login = requests.post(f"{BASE_URL}/auth/login", json={"email": reg_w_email, "password": "Password123!"})
+             warden_token = r_login.json().get("access_token")
+             log_test("Register & Login Warden", "POST", "/auth/register-warden", 200, 200)
+        else:
+             print(f"Failed to register warden: {r.text}")
+    except Exception as e:
+        print(f"Failed to call register warden: {e}")
 
 
 # ═══════════════════════════════════════════════════════
