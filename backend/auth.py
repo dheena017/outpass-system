@@ -10,7 +10,7 @@ from config import settings
 # Use bcrypt_sha256 to safely support long passwords (bcrypt has a 72-byte limit).
 # Keep bcrypt as a fallback so older hashes remain verifiable.
 pwd_context = CryptContext(schemes=["bcrypt_sha256", "bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:

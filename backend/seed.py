@@ -1,6 +1,6 @@
 
 from database import SessionLocal
-from models import User, Student, UserRole, Gender
+from models import User, Student, Warden, UserRole, Gender
 from auth import get_password_hash
 from datetime import datetime
 
@@ -12,17 +12,16 @@ def seed():
         existing_user = db.query(User).filter(User.email == demo_email).first()
         if existing_user:
             print("Demo user already exists.")
-            return
-
-        # Create demo user
-        user = User(
-            email=demo_email,
-            username="demostudent",
-            first_name="Demo",
-            last_name="Student",
-            password_hash=get_password_hash("password123"),
-            role=UserRole.STUDENT,
-        )
+        else:
+            # Create demo user
+            user = User(
+                email=demo_email,
+                username="demostudent",
+                first_name="Demo",
+                last_name="Student",
+                password_hash=get_password_hash("password123"),
+                role=UserRole.STUDENT,
+            )
         db.add(user)
         db.flush()
 
@@ -40,7 +39,42 @@ def seed():
         db.commit()
         print("Demo user created successfully!")
     except Exception as e:
-        print(f"Error seeding: {e}")
+        print(f"Error seeding student: {e}")
+        db.rollback()
+
+    try:
+        # Check if warden user exists
+        warden_email = "warden@college.edu"
+        existing_warden = db.query(User).filter(User.email == warden_email).first()
+        if existing_warden:
+            print("Warden user already exists.")
+            return
+
+        # Create warden user
+        warden_user = User(
+            email=warden_email,
+            username="demowarden",
+            first_name="Chief",
+            last_name="Warden",
+            password_hash=get_password_hash("warden12345"),
+            role=UserRole.WARDEN,
+        )
+        db.add(warden_user)
+        db.flush()
+
+        # Create warden profile
+        warden = Warden(
+            user_id=warden_user.id,
+            warden_id="W101",
+            phone_number="9876543210",
+            department="Computer Science",
+            assigned_dorms=["Block A", "Block B"]
+        )
+        db.add(warden)
+        db.commit()
+        print("Warden user created successfully!")
+    except Exception as e:
+        print(f"Error seeding warden: {e}")
         db.rollback()
     finally:
         db.close()
