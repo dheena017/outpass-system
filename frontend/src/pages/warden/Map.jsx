@@ -3,10 +3,10 @@ import { MapContainer, TileLayer, Marker, Popup, Circle, Polyline, useMap } from
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import L from 'leaflet';
 import { outpassAPI, locationAPI } from '../../api/endpoints';
-import { useAuthStore, useSidebarStore } from '../../store';
+import { useAuthStore, useSidebarStore, useThemeStore } from '../../store';
 import toastService from '../../utils/toastService';
 import { getErrorMessage } from '../../utils/errorMessages';
-import { FiMenu } from 'react-icons/fi';
+import { FiMenu, FiSearch, FiFilter } from 'react-icons/fi';
 import 'leaflet/dist/leaflet.css';
 
 
@@ -29,46 +29,87 @@ function getStudentColor(index) {
   return STUDENT_COLORS[index % STUDENT_COLORS.length];
 }
 
-// Create a round, colored SVG marker with the student's initials
-function createStudentIcon(name, color, isSelected) {
+// Create a round, colored SVG marker with the student's initials and status badges
+function createStudentIcon(name, color, isSelected, battery, isOverdue) {
   const initials = name
     ? name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
     : '??';
-  const size = isSelected ? 44 : 36;
+
+  const size = isSelected ? 46 : 38;
   const border = isSelected ? 3 : 2;
+  const showBatteryWarning = battery !== null && battery <= 20;
+
   const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size + 10}" viewBox="0 0 ${size} ${size + 10}">
-      <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2 - border}" fill="${color}" stroke="white" stroke-width="${border}"/>
-      <text x="${size / 2}" y="${size / 2 + 5}" text-anchor="middle" fill="white"
-        font-family="Arial,sans-serif" font-size="${isSelected ? 14 : 12}" font-weight="bold">${initials}</text>
-      <polygon points="${size / 2 - 6},${size - 4} ${size / 2 + 6},${size - 4} ${size / 2},${size + 8}" fill="${color}"/>
+    <svg xmlns="http://www.w3.org/2000/svg" width="${size + 14}" height="${size + 24}" viewBox="0 0 ${size + 14} ${size + 24}">
+      <defs>
+        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="2" result="blur" />
+          <feComposite in="SourceGraphic" in2="blur" operator="over" />
+        </filter>
+      </defs>
+
+      ${isOverdue ? `
+        <circle cx="${(size + 14) / 2}" cy="${size / 2 + 5}" r="${size / 2 + 4}" fill="none" stroke="#ef4444" stroke-width="2" stroke-dasharray="4 2">
+          <animateTransform attributeName="transform" type="rotate" from="0 ${(size + 14) / 2} ${size / 2 + 5}" to="360 ${(size + 14) / 2} ${size / 2 + 5}" dur="4s" repeatCount="indefinite" />
+        </circle>
+      ` : ''}
+
+      <circle cx="${(size + 14) / 2}" cy="${size / 2 + 5}" r="${size / 2}" fill="${color}" stroke="white" stroke-width="${border}" filter="${isSelected ? 'url(#glow)' : ''}"/>
+      
+      <text x="${(size + 14) / 2}" y="${size / 2 + 10}" text-anchor="middle" fill="white"
+        font-family="Inter, system-ui, sans-serif" font-size="${isSelected ? 15 : 13}" font-weight="900">${initials}</text>
+      
+      <polygon points="${(size + 14) / 2 - 6},${size + 2} ${(size + 14) / 2 + 6},${size + 2} ${(size + 14) / 2},${size + 14}" fill="${color}"/>
+
+      ${showBatteryWarning ? `
+        <g transform="translate(${size + 2}, 5)">
+          <circle r="7" fill="#ef4444" stroke="white" stroke-width="1.5" />
+          <path d="M-1 -3 L-1 1 M-1 2 L-1 3" stroke="white" stroke-width="1.5" stroke-linecap="round" transform="translate(1,0)" />
+          <animate attributeName="opacity" values="1;0.3;1" dur="1.5s" repeatCount="indefinite" />
+        </g>
+      ` : ''}
+
+      ${isOverdue ? `
+        <g transform="translate(5, 5)">
+          <circle r="7" fill="#f59e0b" stroke="white" stroke-width="1.5" />
+          <path d="M-2 -2 L2 2 M2 -2 L-2 2" stroke="white" stroke-width="1.2" stroke-linecap="round" />
+        </g>
+      ` : ''}
     </svg>`;
+
   return L.divIcon({
     html: svg,
-    className: '',
-    iconSize: [size, size + 10],
-    iconAnchor: [size / 2, size + 10],
-    popupAnchor: [0, -(size + 10)],
+    className: 'custom-marker-icon',
+    iconSize: [size + 14, size + 24],
+    iconAnchor: [(size + 14) / 2, size + 14],
+    popupAnchor: [0, -(size + 14)],
   });
 }
 
-// Component to programmatically fly to a position
+// Component to center and zoom map to fit all active markers
+function FitAllMarkers({ students }) {
+  const map = useMap();
+  useEffect(() => {
+    const validPositions = students
+      .filter(s => s.latitude !== 0 && s.longitude !== 0)
+      .map(s => [s.latitude, s.longitude]);
+
+    if (validPositions.length > 0) {
+      const bounds = L.latLngBounds(validPositions);
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16, animate: true, duration: 1.5 });
+    }
+  }, [students, map]);
+  return null;
+}
+
+// Component to programmatically fly to a specific student
 function FlyToStudent({ target }) {
   const map = useMap();
   useEffect(() => {
     if (target) {
-      map.flyTo(target, 17, { duration: 1.2 });
+      map.flyTo(target, 18, { duration: 1.2 });
     }
   }, [target, map]);
-  return null;
-}
-
-// Component to set initial view only
-function SetMapView({ center, zoom }) {
-  const map = useMap();
-  useEffect(() => {
-    map.setView(center, zoom);
-  }, [center, zoom, map]);
   return null;
 }
 
@@ -83,8 +124,11 @@ export default function Map() {
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'overdue', 'moving'
   const { user } = useAuthStore();
   const { isOpen: mainSidebarOpen, toggle: toggleMainSidebar } = useSidebarStore();
+  const { dark } = useThemeStore();
   const wsRef = useRef(null);
   const heartbeatIntervalRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
@@ -238,11 +282,27 @@ export default function Map() {
   };
 
   const now = new Date();
-  const studentsWithColor = activeStudents.map((s, i) => ({
+
+  // Process all students to inject color and simple overdue status
+  const studentsProcessed = activeStudents.map((s, i) => ({
     ...s,
     color: getStudentColor(i),
     isOverdue: s.expected_return_time && new Date(s.expected_return_time) < now,
   }));
+
+  // Apply search & explicit filters
+  const studentsWithColor = studentsProcessed.filter(s => {
+    const matchesSearch = s.student_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.student_id.toLowerCase().includes(searchQuery.toLowerCase());
+    if (!matchesSearch) return false;
+
+    if (activeFilter === 'overdue') return s.isOverdue;
+    if (activeFilter === 'moving') {
+      // Assuming a non-zero speed value in metadata, or just returning those with known coordinates
+      return s.latitude !== 0 && s.longitude !== 0;
+    }
+    return true; // "all"
+  });
 
   if (loading) {
     return (
@@ -324,12 +384,50 @@ export default function Map() {
               )}
             </div>
 
-            {/* Student count header */}
-            <div className="px-5 py-4 border-b border-gray-200/50 dark:border-gray-700/50">
-              <h2 className="text-sm font-extrabold text-gray-800 dark:text-gray-200 tracking-wide">
-                {studentsWithColor.length === 0
-                  ? 'No students outside'
-                  : `${studentsWithColor.length} student${studentsWithColor.length !== 1 ? 's' : ''} tracking`}
+            {/* Student count header & Search Filters */}
+            <div className="px-5 py-4 border-b border-gray-200/50 dark:border-gray-700/50 bg-white dark:bg-[#1A1D27]">
+
+              <div className="relative mb-3">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                  <FiSearch size={16} />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search name or ID..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 bg-gray-50/50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none transition-all placeholder-gray-400 dark:text-gray-200"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 mb-3 overflow-x-auto pb-1 scrollbar-hide">
+                <button
+                  onClick={() => setActiveFilter('all')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${activeFilter === 'all' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+                >
+                  All
+                </button>
+                <button
+                  onClick={() => setActiveFilter('overdue')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-1.5 ${activeFilter === 'overdue' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-red-500"></span> Overdue
+                </button>
+                <button
+                  onClick={() => setActiveFilter('moving')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-1.5 ${activeFilter === 'moving' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span> GPS Active
+                </button>
+              </div>
+
+              <h2 className="text-sm font-extrabold text-gray-800 dark:text-gray-200 tracking-wide flex justify-between items-end">
+                <span>
+                  {studentsWithColor.length === 0
+                    ? 'No students found'
+                    : `${studentsWithColor.length} tracking`}
+                </span>
+                <span className="text-[10px] uppercase text-gray-500 dark:text-gray-400 tracking-wider font-bold">Total: {activeStudents.length}</span>
               </h2>
             </div>
 
@@ -413,15 +511,59 @@ export default function Map() {
       </div>
 
       {/* ── MAP ── */}
-      <div className="flex-1 relative">
-        <MapContainer center={center} zoom={15} className="w-full h-full">
-          <SetMapView center={center} zoom={15} />
+      <div className="flex-1 relative z-10">
+        <style>
+          {`
+            @keyframes dash {
+              to { stroke-dashoffset: -20; }
+            }
+            .animated-route {
+              animation: dash 3s linear infinite;
+            }
+            /* Premium Glassmorphic Popup Styling */
+            .custom-glass-popup .leaflet-popup-content-wrapper {
+              background: rgba(255, 255, 255, 0.8) !important;
+              backdrop-filter: blur(12px) !important;
+              border: 1px solid rgba(255, 255, 255, 0.3) !important;
+              border-radius: 16px !important;
+              box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+              padding: 4px !important;
+            }
+            .dark .custom-glass-popup .leaflet-popup-content-wrapper {
+              background: rgba(26, 29, 39, 0.8) !important;
+              border: 1px solid rgba(255, 255, 255, 0.1) !important;
+              color: white !important;
+            }
+            .custom-glass-popup .leaflet-popup-tip {
+              background: rgba(255, 255, 255, 0.8) !important;
+              backdrop-filter: blur(12px) !important;
+            }
+            .dark .custom-glass-popup .leaflet-popup-tip {
+              background: rgba(26, 29, 39, 0.8) !important;
+            }
+            .custom-glass-popup .leaflet-popup-close-button {
+              color: #9ca3af !important;
+              padding: 10px !important;
+            }
+          `}
+        </style>
+        <MapContainer center={center} zoom={15} className="w-full h-full relative z-10" zoomControl={false}>
+          <FitAllMarkers students={studentsWithColor} />
           {flyTarget && <FlyToStudent target={flyTarget} />}
 
-          <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          />
+          {dark ? (
+            <TileLayer
+              key="dark-map"
+              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+              attribution='&copy; CARTO'
+            />
+          ) : (
+            <TileLayer
+              key="light-map"
+              url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+              attribution='&copy; CARTO'
+            />
+          )}
 
           {/* Render geometry (lines, circles) OUTSIDE the cluster group */}
           {studentsWithColor.map((student) => {
@@ -430,20 +572,26 @@ export default function Map() {
 
             return (
               <div key={`geom-${student.student_id}`}>
-                {/* Route polyline */}
+                {/* Route polyline with dash animation */}
                 {isSelected && routeHistory[student.outpass_request_id]?.length > 0 && (
                   <Polyline
                     positions={routeHistory[student.outpass_request_id]}
-                    pathOptions={{ color: student.color, weight: 3, opacity: 0.8, dashArray: '6, 6' }}
+                    pathOptions={{
+                      color: student.color,
+                      weight: 5,
+                      opacity: 0.9,
+                      dashArray: '12, 12',
+                      className: 'animated-route'
+                    }}
                   />
                 )}
 
-                {/* Accuracy circle */}
-                {student.accuracy && (
+                {/* Selected Student Pulse / Highlight */}
+                {isSelected && (
                   <Circle
                     center={[student.latitude, student.longitude]}
-                    radius={student.accuracy}
-                    pathOptions={{ color: student.color, fillColor: student.color, fillOpacity: 0.08, weight: 1 }}
+                    radius={40}
+                    pathOptions={{ color: student.color, fillColor: student.color, fillOpacity: 0.1, weight: 1.5, dashArray: '4, 4' }}
                   />
                 )}
               </div>
@@ -458,7 +606,13 @@ export default function Map() {
             {studentsWithColor.map((student) => {
               if (student.latitude === 0 && student.longitude === 0) return null;
               const isSelected = selectedStudentId === student.student_id;
-              const icon = createStudentIcon(student.student_name, student.isOverdue ? '#ef4444' : student.color, isSelected);
+              const icon = createStudentIcon(
+                student.student_name,
+                student.color,
+                isSelected,
+                student.battery_level,
+                student.isOverdue
+              );
 
               return (
                 <Marker
@@ -467,43 +621,56 @@ export default function Map() {
                   icon={icon}
                   eventHandlers={{ click: () => handleSelectStudent(student) }}
                 >
-                  <Popup minWidth={230}>
-                    <div className="text-sm space-y-1.5">
-                      <div className="flex items-center gap-2">
-                        <div className="h-3 w-3 rounded-full" style={{ backgroundColor: student.color }} />
-                        <p className="font-bold text-gray-800">{student.student_name}</p>
-                        {student.isOverdue && (
-                          <span className="text-xs font-bold text-red-500 bg-red-50 px-1 rounded">Overdue</span>
-                        )}
+                  <Popup minWidth={280} className="custom-glass-popup">
+                    <div className="p-1">
+                      <div className="flex items-center gap-3 mb-4 border-b border-gray-200/50 dark:border-gray-700/50 pb-3">
+                        <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-xs font-black text-white shadow-md transform rotate-3" style={{ backgroundColor: student.color }}>
+                          {student.student_name.slice(0, 2).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="font-black text-base text-gray-800 dark:text-white leading-none mb-1">{student.student_name}</p>
+                          <p className="text-[11px] text-gray-500 font-bold uppercase tracking-widest">ID: {student.student_id}</p>
+                        </div>
                       </div>
-                      <p className="text-xs text-gray-500">ID: {student.student_id}</p>
-                      <p><span className="font-semibold">Destination:</span> {student.destination}</p>
-                      <p><span className="font-semibold">Departure:</span> {new Date(student.departure_time).toLocaleTimeString()}</p>
-                      <p>
-                        <span className="font-semibold">Return by:</span>{' '}
-                        <span className={student.isOverdue ? 'text-red-600 font-bold' : ''}>
-                          {new Date(student.expected_return_time).toLocaleTimeString()}
-                        </span>
-                      </p>
-                      {student.battery_level !== null && student.battery_level !== undefined && (
-                        <p className={student.battery_level <= 20 ? 'text-red-600' : 'text-green-600'}>
-                          🔋 Battery: {student.battery_level}%
-                        </p>
-                      )}
-                      {student.accuracy && (
-                        <p className="text-xs text-gray-400">GPS accuracy: ±{student.accuracy.toFixed(0)}m</p>
-                      )}
-                      <p className="text-xs text-gray-400">
-                        Updated: {new Date(student.timestamp).toLocaleTimeString()}
-                      </p>
+
+                      <div className="grid grid-cols-2 gap-3 mb-4">
+                        <div className="bg-gray-100/50 dark:bg-white/5 p-3 rounded-2xl border border-white/10">
+                          <p className="text-[10px] text-gray-400 font-black uppercase tracking-tight mb-1">Status</p>
+                          {student.isOverdue ? (
+                            <span className="text-[11px] font-black text-red-500 flex items-center gap-1">
+                              <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" /> OVERDUE
+                            </span>
+                          ) : (
+                            <span className="text-[11px] font-black text-emerald-500">ON TRACK</span>
+                          )}
+                        </div>
+                        <div className="bg-gray-100/50 dark:bg-white/5 p-3 rounded-2xl border border-white/10">
+                          <p className="text-[10px] text-gray-400 font-black uppercase tracking-tight mb-1">Battery</p>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[11px] font-black ${student.battery_level <= 20 ? 'text-red-500' : 'text-gray-700 dark:text-gray-200'}`}>{student.battery_level}%</span>
+                            <div className="flex-1 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                              <div className={`h-full ${student.battery_level <= 20 ? 'bg-red-500' : 'bg-emerald-500'}`} style={{ width: `${student.battery_level}%` }} />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 mb-5 px-1">
+                        <div className="flex items-center justify-between text-[11px] font-bold">
+                          <span className="text-gray-400 uppercase tracking-tighter">Destination</span>
+                          <span className="text-gray-700 dark:text-gray-200">{student.destination}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] font-bold">
+                          <span className="text-gray-400 uppercase tracking-tighter">Return by</span>
+                          <span className="text-gray-700 dark:text-gray-200">{new Date(student.expected_return_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                      </div>
+
                       <button
                         onClick={() => fetchLocationHistory(student.outpass_request_id, student.student_id)}
-                        className="mt-1 w-full text-white text-xs font-semibold px-3 py-1.5 rounded transition"
-                        style={{ backgroundColor: student.color }}
+                        className={`w-full py-3 rounded-2xl text-[11px] font-black tracking-widest uppercase transition-all transform active:scale-95 shadow-md border ${isSelected && routeHistory[student.outpass_request_id] ? 'bg-indigo-600 text-white border-indigo-400' : 'bg-gray-800 text-white border-gray-700 hover:bg-gray-900'}`}
                       >
-                        {isSelected && routeHistory[student.outpass_request_id]
-                          ? '✓ Route Visible'
-                          : '🗺 View Route'}
+                        {isSelected && routeHistory[student.outpass_request_id] ? '✓ Route Active' : 'View Full History'}
                       </button>
                     </div>
                   </Popup>
