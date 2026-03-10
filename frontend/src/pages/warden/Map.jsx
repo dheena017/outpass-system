@@ -258,41 +258,41 @@ export default function Map() {
   }
 
   return (
-    <div className="flex w-full h-screen overflow-hidden">
+    <div className="flex w-full h-[calc(100vh-4rem)] md:h-screen overflow-hidden bg-gray-50 dark:bg-gray-900">
 
       {/* ── LEFT SIDEBAR ── */}
       <div
-        className={`flex-shrink-0 bg-white shadow-xl z-20 flex flex-col transition-all duration-300 ${sidebarOpen ? 'w-72' : 'w-12'}`}
+        className={`flex-shrink-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-r border-gray-200/50 dark:border-gray-700/50 shadow-xl z-20 flex flex-col transition-all duration-300 ease-in-out ${sidebarOpen ? 'w-80 relative' : 'w-12 overflow-hidden'}`}
       >
         {/* Toggle button */}
         <button
           onClick={() => setSidebarOpen(o => !o)}
-          className="flex items-center justify-center h-10 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold tracking-wide"
-          title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+          className={`flex items-center justify-center h-12 bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white text-xs font-bold tracking-widest uppercase transition-all shadow-md ${sidebarOpen ? '' : 'writing-vertical'}`}
+          title={sidebarOpen ? 'Collapse panel' : 'Expand panel'}
         >
-          {sidebarOpen ? '◀ Hide' : '▶'}
+          {sidebarOpen ? '◀ Hide Tracker' : '▶'}
         </button>
 
         {sidebarOpen && (
           <>
             {/* Connection status */}
-            <div className="px-4 py-3 border-b bg-gray-50">
-              <div className="flex items-center gap-2">
+            <div className="px-5 py-4 border-b border-gray-200/50 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-800/50">
+              <div className="flex items-center gap-3">
                 <div
-                  className={`h-2.5 w-2.5 rounded-full flex-shrink-0 ${connectionStatus === 'connected'
-                    ? 'bg-green-500'
+                  className={`h-3 w-3 rounded-full flex-shrink-0 shadow-sm ${connectionStatus === 'connected'
+                    ? 'bg-emerald-500 shadow-emerald-500/50'
                     : connectionStatus === 'reconnecting'
-                      ? 'bg-yellow-400 animate-pulse'
+                      ? 'bg-amber-400 animate-pulse shadow-amber-400/50'
                       : connectionStatus === 'connecting'
-                        ? 'bg-orange-400 animate-pulse'
-                        : 'bg-red-500'
+                        ? 'bg-orange-400 animate-pulse shadow-orange-400/50'
+                        : 'bg-rose-500 shadow-rose-500/50'
                     }`}
                 />
-                <span className="text-xs font-semibold text-gray-700">
+                <span className="text-sm font-bold tracking-wide uppercase text-gray-700 dark:text-gray-300">
                   {connectionStatus === 'connected'
                     ? 'Live Tracking'
                     : connectionStatus === 'reconnecting'
-                      ? `Reconnecting (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})…`
+                      ? `Reconnecting (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`
                       : connectionStatus === 'connecting'
                         ? 'Connecting…'
                         : 'Offline'}
@@ -301,7 +301,7 @@ export default function Map() {
               {connectionStatus !== 'connected' && (
                 <button
                   onClick={() => { reconnectCountRef.current = 0; connectWebSocket(); }}
-                  className="mt-2 w-full text-xs bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded"
+                  className="mt-3 w-full text-xs font-bold tracking-wider uppercase bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg transition-colors active:scale-95 shadow-sm"
                 >
                   Reconnect
                 </button>
@@ -309,11 +309,11 @@ export default function Map() {
             </div>
 
             {/* Student count header */}
-            <div className="px-4 py-3 border-b">
-              <h2 className="text-sm font-bold text-gray-800">
+            <div className="px-5 py-4 border-b border-gray-200/50 dark:border-gray-700/50">
+              <h2 className="text-sm font-extrabold text-gray-800 dark:text-gray-200 tracking-wide">
                 {studentsWithColor.length === 0
                   ? 'No students outside'
-                  : `${studentsWithColor.length} student${studentsWithColor.length !== 1 ? 's' : ''} outside`}
+                  : `${studentsWithColor.length} student${studentsWithColor.length !== 1 ? 's' : ''} tracking`}
               </h2>
             </div>
 
@@ -332,24 +332,24 @@ export default function Map() {
                     <button
                       key={student.student_id}
                       onClick={() => handleSelectStudent(student)}
-                      className={`w-full text-left px-4 py-3 border-b hover:bg-gray-50 transition ${isSelected ? 'bg-blue-50 border-l-4' : 'border-l-4 border-l-transparent'}`}
+                      className={`w-full text-left px-5 py-4 border-b border-gray-100 dark:border-gray-800 hover:bg-white dark:hover:bg-gray-800 transition-all ${isSelected ? 'bg-indigo-50/50 dark:bg-indigo-900/20 border-l-4' : 'bg-transparent border-l-4 border-l-transparent'}`}
                       style={{ borderLeftColor: isSelected ? student.color : 'transparent' }}
                     >
                       <div className="flex items-center gap-3">
                         {/* Color dot */}
                         <div
-                          className="h-3 w-3 rounded-full flex-shrink-0 ring-2 ring-white shadow"
+                          className="h-3 w-3 rounded-full flex-shrink-0 ring-4 ring-white shadow-sm dark:ring-gray-800"
                           style={{ backgroundColor: student.color }}
                         />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-gray-800 truncate">
+                          <p className="text-sm font-extrabold text-gray-900 dark:text-gray-100 truncate">
                             {student.student_name}
                           </p>
-                          <p className="text-xs text-gray-500 truncate">
+                          <p className="text-xs text-gray-500 dark:text-gray-400 font-medium truncate mt-0.5">
                             ID: {student.student_id}
                           </p>
-                          <p className="text-xs text-gray-600 truncate">
-                            📍 {student.destination}
+                          <p className="text-xs text-gray-600 dark:text-gray-400 font-medium truncate mt-0.5 flex items-center gap-1">
+                            <span>📍</span> {student.destination}
                           </p>
                         </div>
                         <div className="flex-shrink-0 text-right">
@@ -370,14 +370,14 @@ export default function Map() {
 
                       {/* Battery indicator */}
                       {student.battery_level !== null && student.battery_level !== undefined && (
-                        <div className="mt-1.5 flex items-center gap-1">
-                          <div className="flex-1 h-1 bg-gray-200 rounded-full overflow-hidden">
+                        <div className="mt-3 flex items-center gap-2 bg-gray-50 dark:bg-gray-900/50 p-1.5 rounded-lg border border-gray-100 dark:border-gray-800">
+                          <div className="flex-1 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden shadow-inner">
                             <div
-                              className={`h-full rounded-full ${student.battery_level > 20 ? 'bg-green-400' : 'bg-red-400'}`}
+                              className={`h-full rounded-full transition-all duration-300 ${student.battery_level > 20 ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'}`}
                               style={{ width: `${student.battery_level}%` }}
                             />
                           </div>
-                          <span className="text-xs text-gray-400">{student.battery_level}%</span>
+                          <span className={`text-[10px] font-extrabold w-8 text-right ${student.battery_level <= 20 ? 'text-rose-500' : 'text-gray-500 dark:text-gray-400'}`}>{student.battery_level}%</span>
                         </div>
                       )}
 
