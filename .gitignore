@@ -30,3 +30,6 @@ dist-ssr/
 *.sqlite
 *.sqlite3
 *.db
+
+# Local Netlify folder
+.netlify
