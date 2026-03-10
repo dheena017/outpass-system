@@ -23,94 +23,102 @@ export default function StudentNav() {
   return (
     <>
       {/* ── Desktop Sidebar ── */}
-      <nav className={`hidden md:flex flex-col fixed top-0 left-0 h-screen z-40 overflow-y-auto bg-gradient-to-b from-indigo-600 via-blue-600 to-blue-800 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 text-white w-72 p-6 shadow-2xl transition-all duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="flex items-center justify-between gap-3 mb-10">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center shadow-inner">
-              <span className="text-xl font-bold bg-gradient-to-br from-white to-blue-200 bg-clip-text text-transparent">O</span>
+      <nav className={`hidden md:flex flex-col fixed top-0 left-0 h-screen z-40 overflow-y-auto bg-[#1A1D27] text-white w-72 p-5 transition-all duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8 px-1 mt-2">
+          <div className="flex items-center gap-4">
+            <div className="w-9 h-9 rounded-xl bg-[#2A2E3D] flex items-center justify-center shadow-sm">
+              <span className="text-xl font-bold text-white">O</span>
             </div>
-            <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent">Outpass</h1>
+            <h1 className="text-2xl font-extrabold tracking-wide text-white">Outpass</h1>
           </div>
           <button
             onClick={toggleDesktopSidebar}
-            className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors border border-transparent hover:border-white/20"
+            className="w-8 h-8 flex items-center justify-center bg-[#2A2E3D] hover:bg-[#3A4150] rounded-lg transition-colors text-white/70 hover:text-white"
             aria-label="Close sidebar"
           >
-            <FiChevronLeft size={20} />
+            <FiChevronLeft size={18} />
           </button>
         </div>
 
-        <div className="mb-8 p-4 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl flex items-center gap-4 shadow-lg transform hover:scale-[1.02] transition-transform duration-300">
-          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white font-bold text-lg shadow-md ring-2 ring-white/30 shrink-0">
+        {/* Profile Card */}
+        <div className="mb-8 p-4 bg-[#252A38] rounded-2xl flex items-center gap-4 border border-white/5 shadow-md">
+          <div className="w-12 h-12 rounded-full bg-[#5B6BF9] flex items-center justify-center text-white font-bold text-lg shadow-sm shrink-0">
             {initials || 'U'}
           </div>
           <div className="overflow-hidden">
-            <p className="text-xs text-blue-200 dark:text-gray-400 font-medium uppercase tracking-wider">Welcome back,</p>
-            <p className="font-bold text-lg truncate drop-shadow-sm">{user?.first_name} {user?.last_name}</p>
+            <p className="text-[10px] text-white/50 font-bold uppercase tracking-wider mb-0.5">Welcome back,</p>
+            <p className="font-bold text-base truncate text-white">{user?.first_name} {user?.last_name}</p>
           </div>
         </div>
 
-        <div className="space-y-3 flex-1">
-          {navLinks.map((link) => (
-            <Link
-              key={link.to}
-              to={link.to}
-              className={`flex items-center gap-4 px-5 py-3.5 rounded-xl transition-all duration-300 group ${isActive(link.to)
-                ? 'bg-white/20 border border-white/30 shadow-lg backdrop-blur-md translate-x-1'
-                : 'hover:bg-white/10 hover:translate-x-1 border border-transparent'
-                }`}
-            >
-              <div className={`p-2 rounded-lg transition-colors ${isActive(link.to) ? 'bg-white/20 text-white' : 'bg-transparent text-blue-200 group-hover:text-white group-hover:bg-white/10'}`}>
-                <link.icon size={20} />
-              </div>
-              <span className={`font-semibold tracking-wide ${isActive(link.to) ? 'text-white' : 'text-blue-100 group-hover:text-white'}`}>
-                {link.label}
-              </span>
-            </Link>
-          ))}
+        {/* Links */}
+        <div className="space-y-2 flex-1">
+          {navLinks.map((link) => {
+            const active = isActive(link.to);
+            return (
+              <Link
+                key={link.to}
+                to={link.to}
+                className={`flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all duration-200 group border ${active
+                    ? 'bg-[#3A4150] border-white/5 shadow-sm'
+                    : 'bg-transparent border-transparent hover:bg-[#2A2E3D]'
+                  }`}
+              >
+                <div className={`p-1.5 rounded-md ${active ? 'bg-white/10 text-white' : 'text-white/70 group-hover:text-white'}`}>
+                  <link.icon size={18} />
+                </div>
+                <span className={`font-semibold text-[15px] ${active ? 'text-white' : 'text-white/70 group-hover:text-white'}`}>
+                  {link.label}
+                </span>
+              </Link>
+            );
+          })}
         </div>
 
+        {/* Bottom Actions */}
         <div className="space-y-3 mt-8">
           <button
             onClick={toggleDark}
             aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
-            className="w-full flex items-center justify-center gap-3 px-5 py-3 bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/10 rounded-xl transition-all duration-300 hover:-translate-y-0.5 shadow-md focus:outline-none focus:ring-2 focus:ring-white/50"
+            className="w-full flex items-center justify-center gap-3 px-5 py-3.5 bg-[#252A38] hover:bg-[#3A4150] border border-white/5 rounded-xl transition-all duration-200 shadow-sm"
           >
-            {dark ? <FiSun className="text-yellow-300" size={20} /> : <FiMoon className="text-blue-200" size={20} />}
-            <span className="font-semibold">{dark ? 'Light Mode' : 'Dark Mode'}</span>
+            {dark ? <FiSun className="text-yellow-400" size={18} /> : <FiMoon className="text-yellow-400" size={18} />}
+            <span className="font-bold text-[15px] text-white">{dark ? 'Light Mode' : 'Dark Mode'}</span>
           </button>
 
           <button
             onClick={logout}
             aria-label="Logout"
-            className="w-full flex items-center justify-center gap-3 px-5 py-3 bg-red-500/80 hover:bg-red-500 backdrop-blur-sm border border-red-500/50 hover:border-red-400 rounded-xl transition-all duration-300 hover:-translate-y-0.5 shadow-md focus:outline-none focus:ring-2 focus:ring-red-300"
+            className="w-full flex items-center justify-center gap-3 px-5 py-3.5 bg-[#D64545] hover:bg-[#E55353] rounded-xl transition-all duration-200 shadow-md"
           >
-            <FiLogOut size={20} />
-            <span className="font-semibold">Logout</span>
+            <FiLogOut size={18} className="text-white" />
+            <span className="font-bold text-[15px] text-white">Logout</span>
           </button>
         </div>
       </nav>
 
       {/* ── Mobile Top Bar ── */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-indigo-600/90 dark:bg-gray-900/90 backdrop-blur-md text-white flex items-center justify-between px-5 h-16 shadow-lg border-b border-indigo-500/30 dark:border-gray-700/50 transition-colors duration-300">
+      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-[#1A1D27] text-white flex items-center justify-between px-5 h-16 shadow-lg border-b border-[#2A2E3D] transition-colors duration-300">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-sm font-bold shadow-inner ring-2 ring-white/20">
+          <div className="w-9 h-9 rounded-full bg-[#5B6BF9] flex items-center justify-center text-sm font-bold shadow-sm">
             {initials || 'U'}
           </div>
-          <h1 className="text-xl font-extrabold tracking-tight bg-gradient-to-r from-white to-blue-100 bg-clip-text text-transparent">Outpass</h1>
+          <h1 className="text-xl font-extrabold tracking-tight text-white">Outpass</h1>
         </div>
 
         <div className="flex items-center gap-2">
           <button
             onClick={toggleDark}
-            className="p-2.5 bg-white/10 hover:bg-white/20 border border-white/5 backdrop-blur-sm rounded-full transition-all duration-300 active:scale-95"
+            className="p-2.5 bg-[#2A2E3D] border border-white/5 rounded-full transition-all duration-300 active:scale-95"
             aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
           >
-            {dark ? <FiSun size={18} className="text-yellow-300" /> : <FiMoon size={18} className="text-blue-100" />}
+            {dark ? <FiSun size={18} className="text-yellow-400" /> : <FiMoon size={18} className="text-yellow-400" />}
           </button>
           <button
             onClick={() => setOpen(!open)}
-            className={`p-2.5 transition-all duration-300 rounded-full active:scale-95 ${open ? 'bg-white/20 rotate-90' : 'bg-transparent hover:bg-white/10'}`}
+            className={`p-2.5 transition-all duration-300 rounded-full active:scale-95 ${open ? 'bg-[#3A4150]' : 'bg-transparent hover:bg-[#2A2E3D]'}`}
             aria-label={open ? "Close menu" : "Open menu"}
             aria-expanded={open}
           >
@@ -121,7 +129,7 @@ export default function StudentNav() {
 
       {/* ── Mobile Slide-down Menu ── */}
       <div
-        className={`md:hidden fixed top-16 left-0 right-0 z-40 bg-indigo-700/95 dark:bg-gray-800/95 backdrop-blur-xl border-b border-indigo-600/50 dark:border-gray-700 shadow-2xl transition-all duration-400 ease-in-out origin-top ${open ? 'opacity-100 scale-y-100 translate-y-0' : 'opacity-0 scale-y-0 -translate-y-4 pointer-events-none'
+        className={`md:hidden fixed top-16 left-0 right-0 z-40 bg-[#1A1D27] border-b border-[#2A2E3D] shadow-2xl transition-all duration-400 ease-in-out origin-top ${open ? 'opacity-100 scale-y-100 translate-y-0' : 'opacity-0 scale-y-0 -translate-y-4 pointer-events-none'
           }`}
       >
         <div className="p-4 space-y-2">
@@ -130,22 +138,20 @@ export default function StudentNav() {
               key={link.to}
               to={link.to}
               onClick={() => setOpen(false)}
-              className={`flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all duration-200 ${isActive(link.to) ? 'bg-white/20 shadow-inner translate-x-1' : 'hover:bg-white/10 hover:translate-x-1'
+              className={`flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all duration-200 border ${isActive(link.to) ? 'bg-[#3A4150] border-white/5' : 'border-transparent hover:bg-[#2A2E3D]'
                 }`}
             >
-              <div className={`p-2 rounded-lg ${isActive(link.to) ? 'bg-white/20 text-white' : 'bg-indigo-600/50 dark:bg-gray-700 text-blue-200'}`}>
-                <link.icon size={20} />
+              <div className={`p-1.5 rounded-md ${isActive(link.to) ? 'bg-white/10 text-white' : 'text-white/70'}`}>
+                <link.icon size={18} />
               </div>
-              <span className={`font-semibold tracking-wide ${isActive(link.to) ? 'text-white' : 'text-blue-100'}`}>{link.label}</span>
+              <span className={`font-semibold text-[15px] ${isActive(link.to) ? 'text-white' : 'text-white/70'}`}>{link.label}</span>
             </Link>
           ))}
           <button
             onClick={() => { setOpen(false); logout(); }}
-            className="w-full flex items-center gap-4 px-4 py-3.5 mt-4 rounded-xl text-red-100 bg-red-500/20 hover:bg-red-500/40 border border-red-500/30 transition-all active:scale-95"
+            className="w-full flex items-center gap-4 px-4 py-3.5 mt-4 rounded-xl text-white bg-[#D64545] hover:bg-[#E55353] transition-all active:scale-95"
           >
-            <div className="p-2 rounded-lg bg-red-500/30 text-red-200">
-              <FiLogOut size={20} />
-            </div>
+            <FiLogOut size={18} />
             <span className="font-semibold tracking-wide">Logout</span>
           </button>
         </div>

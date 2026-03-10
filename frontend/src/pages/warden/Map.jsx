@@ -3,9 +3,10 @@ import { MapContainer, TileLayer, Marker, Popup, Circle, Polyline, useMap } from
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import L from 'leaflet';
 import { outpassAPI, locationAPI } from '../../api/endpoints';
-import { useAuthStore } from '../../store';
+import { useAuthStore, useSidebarStore } from '../../store';
 import toastService from '../../utils/toastService';
 import { getErrorMessage } from '../../utils/errorMessages';
+import { FiMenu } from 'react-icons/fi';
 import 'leaflet/dist/leaflet.css';
 
 
@@ -83,6 +84,7 @@ export default function Map() {
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const { user } = useAuthStore();
+  const { isOpen: mainSidebarOpen, toggle: toggleMainSidebar } = useSidebarStore();
   const wsRef = useRef(null);
   const heartbeatIntervalRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
@@ -264,14 +266,28 @@ export default function Map() {
       <div
         className={`flex-shrink-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-r border-gray-200/50 dark:border-gray-700/50 shadow-xl z-20 flex flex-col transition-all duration-300 ease-in-out ${sidebarOpen ? 'w-80 relative' : 'w-12 overflow-hidden'}`}
       >
-        {/* Toggle button */}
-        <button
-          onClick={() => setSidebarOpen(o => !o)}
-          className={`flex items-center justify-center h-12 bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white text-xs font-bold tracking-widest uppercase transition-all shadow-md ${sidebarOpen ? '' : 'writing-vertical'}`}
-          title={sidebarOpen ? 'Collapse panel' : 'Expand panel'}
-        >
-          {sidebarOpen ? '◀ Hide Tracker' : '▶'}
-        </button>
+        {/* Tracker Header & Main Menu Toggle */}
+        <div className={`flex items-center justify-between h-12 bg-gradient-to-r from-indigo-500 to-blue-600 shadow-md ${sidebarOpen ? 'px-2' : 'flex-col justify-start pt-2 px-0 gap-2'}`}>
+          {/* Hamburger button for Main WardenNav Sidebar */}
+          {!mainSidebarOpen && (
+            <button
+              onClick={toggleMainSidebar}
+              className={`flex-shrink-0 p-1.5 text-white hover:bg-white/20 rounded-lg transition-colors ${!sidebarOpen ? 'mb-2' : ''}`}
+              title="Open Main Menu"
+            >
+              <FiMenu size={20} />
+            </button>
+          )}
+
+          {/* Toggle button for Tracking Sidebar */}
+          <button
+            onClick={() => setSidebarOpen(o => !o)}
+            className={`flex-1 flex items-center text-white text-xs font-bold tracking-widest uppercase transition-all hover:text-blue-200 ${sidebarOpen ? 'h-full justify-start pl-2' : 'justify-center writing-vertical h-full pb-2'}`}
+            title={sidebarOpen ? 'Collapse panel' : 'Expand panel'}
+          >
+            {sidebarOpen ? '◀ Hide Tracker' : '▶'}
+          </button>
+        </div>
 
         {sidebarOpen && (
           <>
