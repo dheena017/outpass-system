@@ -1,12 +1,13 @@
 import { Link, useLocation } from 'react-router-dom';
-import { useAuthStore, useThemeStore } from '../store';
-import { FiLogOut, FiMenu, FiX, FiCheckSquare, FiUsers, FiMap, FiBarChart2, FiMoon, FiSun, FiShield } from 'react-icons/fi';
+import { useAuthStore, useThemeStore, useSidebarStore } from '../store';
+import { FiLogOut, FiMenu, FiX, FiCheckSquare, FiUsers, FiMap, FiBarChart2, FiMoon, FiSun, FiShield, FiChevronLeft } from 'react-icons/fi';
 import { useState } from 'react';
 
 export default function WardenNav() {
   const [open, setOpen] = useState(false);
   const { logout, user } = useAuthStore();
   const { dark, toggle: toggleDark } = useThemeStore();
+  const { isOpen, toggle: toggleDesktopSidebar } = useSidebarStore();
   const location = useLocation();
 
   const isActive = (path) => location.pathname === path;
@@ -21,8 +22,17 @@ export default function WardenNav() {
   return (
     <>
       {/* ── Desktop Sidebar ── */}
-      <nav className="hidden md:flex flex-col bg-green-700 text-white w-64 min-h-screen p-4">
-        <h1 className="text-2xl font-bold mb-8">Outpass Control</h1>
+      <nav className={`hidden md:flex flex-col fixed top-0 left-0 h-screen overflow-y-auto z-40 bg-green-700 text-white w-64 p-4 transition-all duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-2xl font-bold">Outpass Control</h1>
+          <button
+            onClick={toggleDesktopSidebar}
+            className="p-1.5 bg-green-800 hover:bg-green-600 rounded text-green-100 hover:text-white transition-colors border border-green-600/50"
+            aria-label="Close sidebar"
+          >
+            <FiChevronLeft size={20} />
+          </button>
+        </div>
 
         <div className="mb-6 p-4 bg-green-600 rounded">
           <p className="text-sm">Warden</p>

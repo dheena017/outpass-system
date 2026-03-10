@@ -84,3 +84,9 @@ export const useThemeStore = create((set) => ({
     set({ dark: isDark });
   },
 }));
+
+export const useSidebarStore = create((set) => ({
+  isOpen: true,
+  toggle: () => set((state) => ({ isOpen: !state.isOpen })),
+  setIsOpen: (isOpen) => set({ isOpen }),
+}));

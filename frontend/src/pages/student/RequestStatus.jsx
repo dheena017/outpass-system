@@ -307,64 +307,79 @@ export default function RequestStatus() {
     return (
       <div
         key={request.id}
-        className={`bg-white rounded-lg shadow p-6 hover:shadow-lg transition ${isTimeline ? 'w-full text-left' : ''}`}
+        className={`bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-gray-200/50 dark:border-gray-700/50 rounded-2xl shadow-lg p-6 hover:shadow-2xl hover:border-indigo-500/30 transition-all duration-300 group ${isTimeline ? 'w-full text-left' : ''}`}
       >
-        <div className={`flex justify-between items-start mb-4 ${isTimeline ? 'flex-col gap-2' : ''}`}>
-          <div>
-            <h2 className="text-xl font-bold text-gray-800">{request.destination}</h2>
-            <p className="text-gray-600 text-sm">{request.reason}</p>
+        <div className={`flex justify-between items-start mb-6 ${isTimeline ? 'flex-col gap-4' : ''}`}>
+          <div className="flex-1 pr-4">
+            <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{request.destination}</h2>
+            <p className="text-gray-600 dark:text-gray-400 text-sm font-medium line-clamp-2">{request.reason}</p>
           </div>
-          <div className="flex flex-col items-end gap-2">
+          <div className="flex flex-col items-end gap-3 shrink-0">
             <StatusBadge status={request.status} />
             {['approved', 'active', 'closed'].includes(request.status) && (
-              <div className="bg-white p-1 rounded-md shadow-sm border border-gray-100 mt-2">
+              <div className="bg-white p-2 rounded-xl shadow-inner border border-gray-100 mt-1 transition-transform group-hover:scale-105">
                 <QRCodeCanvas
                   value={`${window.location.origin}/validate/${request.id}`}
-                  size={64}
+                  size={72}
                   level="M"
                 />
-                <p className="text-[10px] text-center text-gray-500 font-mono mt-1 pt-1 border-t px-1 font-bold">SCAN ME</p>
+                <p className="text-[10px] text-center text-indigo-600 font-mono mt-2 pt-1 border-t px-1 font-extrabold tracking-widest">SCAN</p>
               </div>
             )}
           </div>
         </div>
 
-        <div className={`grid grid-cols-2 gap-4 text-sm text-gray-600 mb-4 ${isTimeline ? 'text-left' : ''}`}>
+        <div className={`grid grid-cols-2 lg:grid-cols-3 gap-5 p-4 rounded-xl bg-gray-50/50 dark:bg-gray-900/50 border border-gray-100/50 dark:border-gray-800/50 text-sm mb-6 ${isTimeline ? 'text-left' : ''}`}>
           <div>
-            <span className="font-semibold">Departure:</span> <br />
-            {new Date(request.departure_time).toLocaleString()}
+            <span className="flex items-center gap-1.5 font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-xs mb-1">
+              <FiCalendar size={14} /> Departure
+            </span>
+            <span className="font-semibold text-gray-900 dark:text-gray-200">
+              {new Date(request.departure_time).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+            </span>
           </div>
           <div>
-            <span className="font-semibold">Expected Return:</span> <br />
-            {new Date(request.expected_return_time).toLocaleString()}
+            <span className="flex items-center gap-1.5 font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-xs mb-1">
+              <FiClock size={14} /> Expected Return
+            </span>
+            <span className="font-semibold text-gray-900 dark:text-gray-200">
+              {new Date(request.expected_return_time).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+            </span>
           </div>
           {request.actual_return_time && (
-            <div>
-              <span className="font-semibold">Actual Return:</span> <br />
-              {new Date(request.actual_return_time).toLocaleString()}
+            <div className="col-span-2 lg:col-span-1 border-t lg:border-t-0 lg:border-l border-gray-200 dark:border-gray-700 pt-3 lg:pt-0 lg:pl-5">
+              <span className="flex items-center gap-1.5 font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-wider text-xs mb-1">
+                <FiCheckCircle size={14} /> Actual Return
+              </span>
+              <span className="font-semibold text-indigo-900 dark:text-indigo-200">
+                {new Date(request.actual_return_time).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+              </span>
             </div>
           )}
         </div>
 
         {request.rejection_reason && (
-          <div className="mb-4 bg-red-50 border border-red-200 p-3 rounded text-left">
-            <p className="text-sm text-red-700">
-              <span className="font-semibold">Rejection Reason:</span>{' '}
-              {request.rejection_reason}
-            </p>
+          <div className="mb-6 bg-red-500/10 border border-red-500/20 p-4 rounded-xl text-left flex items-start gap-3">
+            <FiAlertCircle className="text-red-500 mt-0.5 shrink-0" size={18} />
+            <div>
+              <p className="text-xs font-bold text-red-600 dark:text-red-400 uppercase tracking-wider mb-1">Rejection Reason</p>
+              <p className="text-sm font-medium text-red-800 dark:text-red-300">
+                {request.rejection_reason}
+              </p>
+            </div>
           </div>
         )}
 
         {/* Action Buttons & PDF Export */}
         {(availableActions.length > 0 || ['approved', 'active', 'closed'].includes(request.status)) && (
-          <div className="flex flex-col gap-2 mt-4 pt-4 border-t items-start">
-            <div className="flex flex-wrap gap-3">
+          <div className="flex flex-col gap-3 mt-2 pt-5 border-t border-gray-200/50 dark:border-gray-700/50 items-start">
+            <div className="flex flex-wrap gap-3 w-full">
               {availableActions.map((action) => {
                 const IconComponent = action.icon;
                 const colorClasses = {
-                  blue: 'bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300',
-                  green: 'bg-green-500 hover:bg-green-600 disabled:bg-green-300',
-                  orange: 'bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300',
+                  blue: 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500/50',
+                  green: 'bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500/50',
+                  orange: 'bg-amber-500 hover:bg-amber-600 focus:ring-amber-500/50',
                 };
                 return (
                   <button
@@ -372,9 +387,9 @@ export default function RequestStatus() {
                     onClick={() => handleStatusUpdate(request.id, action.status)}
                     disabled={actionLoading === request.id || action.disabled}
                     title={action.disabledReason || ''}
-                    className={`flex items-center gap-2 ${colorClasses[action.color]} disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg transition`}
+                    className={`flex items-center justify-center gap-2 flex-grow sm:flex-grow-0 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold px-5 py-2.5 rounded-xl shadow-md transition-all active:scale-95 focus:ring-4 ${colorClasses[action.color] || 'bg-blue-600'}`}
                   >
-                    <IconComponent size={16} />
+                    {actionLoading === request.id ? <LoadingSpinner /> : <IconComponent size={18} />}
                     {actionLoading === request.id ? 'Updating...' : action.label}
                   </button>
                 );
@@ -384,17 +399,18 @@ export default function RequestStatus() {
               {['approved', 'active', 'closed'].includes(request.status) && (
                 <button
                   onClick={() => exportToPDF(request)}
-                  className="flex items-center gap-2 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition"
+                  className="flex items-center justify-center gap-2 flex-grow sm:flex-grow-0 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 font-bold px-5 py-2.5 rounded-xl transition-all active:scale-95 hover:shadow-md"
                 >
-                  <FiDownload size={16} />
+                  <FiDownload size={18} />
                   Download PDF
                 </button>
               )}
             </div>
             {availableActions.some(a => a.disabled && a.disabledReason) && (
-              <p className="text-xs text-amber-600 flex items-center gap-1">
-                ⏰ {availableActions.find(a => a.disabled && a.disabledReason)?.disabledReason}
-              </p>
+              <div className="bg-amber-500/10 text-amber-700 dark:text-amber-400 px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 mt-2 border border-amber-500/20">
+                <FiClock size={14} className="shrink-0" />
+                {availableActions.find(a => a.disabled && a.disabledReason)?.disabledReason}
+              </div>
             )}
           </div>
         )}
@@ -407,73 +423,94 @@ export default function RequestStatus() {
   }
 
   return (
-    <div className="p-8">
-      <div className="flex flex-wrap justify-between items-center gap-4 mb-8">
-        <h1 className="text-3xl font-bold text-gray-800">My Outpass Requests</h1>
-        <div className="flex items-center gap-2">
+    <div className="min-h-[calc(100vh-theme(spacing.16))] p-4 sm:p-8 max-w-7xl mx-auto space-y-6 animate-fade-in-up">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-10 pb-6 border-b border-gray-200 dark:border-gray-800">
+        <div>
+          <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight">My Outpass Requests</h1>
+          <p className="text-gray-500 dark:text-gray-400 font-medium mt-1">Track and manage your travel history</p>
+        </div>
+        <div className="flex items-center gap-3 self-start sm:self-auto">
           {!notifEnabled && (
             <button
               onClick={requestNotificationPermission}
-              className="flex items-center gap-2 bg-amber-50 border border-amber-300 text-amber-700 px-3 py-2 rounded-lg text-sm hover:bg-amber-100 transition"
+              className="flex items-center gap-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 border border-amber-500/30 px-4 py-2.5 rounded-xl font-bold transition-all active:scale-95 shadow-sm"
             >
-              <FiBell size={14} /> Enable Alerts
+              <FiBell size={18} /> Enable Alerts
             </button>
           )}
           {notifEnabled && (
-            <span className="flex items-center gap-1 text-xs text-green-600 px-3 py-2">
-              <FiBell size={14} /> Alerts on
+            <span className="flex items-center gap-1.5 text-sm font-bold text-emerald-600 bg-emerald-500/10 border border-emerald-500/20 px-4 py-2.5 rounded-xl shadow-sm">
+              <FiBell size={18} /> Alerts on
             </span>
           )}
           <button
             onClick={fetchRequests}
             disabled={loading}
-            className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg"
+            className="flex items-center gap-2 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700 shadow-sm px-4 py-2.5 rounded-xl font-bold transition-all active:scale-95"
           >
-            <FiRefreshCw /> Refresh
+            <FiRefreshCw className={loading ? 'animate-spin' : ''} size={18} /> Refresh
           </button>
         </div>
       </div>
 
       {/* Analytics Stats Cards */}
       {requests.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg shadow p-6">
-            <div className="flex items-center justify-between">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
+          <div className="relative overflow-hidden bg-white/60 dark:bg-gray-800/60 backdrop-blur-md rounded-2xl border border-white/20 dark:border-gray-700/50 shadow-lg p-6 group hover:-translate-y-1 transition-all duration-300">
+            <div className="absolute -right-6 -top-6 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl group-hover:bg-blue-500/20 transition-all duration-500"></div>
+            <div className="flex items-center justify-between relative z-10">
               <div>
-                <p className="text-gray-600 text-sm font-medium">Total Requests</p>
-                <p className="text-3xl font-bold text-blue-600 mt-1">{metrics.total}</p>
+                <p className="text-gray-500 dark:text-gray-400 text-sm font-bold uppercase tracking-wider">Total Requests</p>
+                <p className="text-4xl font-extrabold text-gray-900 dark:text-white mt-2">{metrics.total}</p>
               </div>
-              <FiCheckCircle className="text-blue-300" size={40} />
+              <div className="p-3 bg-blue-500/10 dark:bg-blue-500/20 rounded-xl text-blue-600 dark:text-blue-400">
+                <FiCheckCircle size={32} />
+              </div>
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg shadow p-6">
-            <div className="flex items-center justify-between">
+          <div className="relative overflow-hidden bg-white/60 dark:bg-gray-800/60 backdrop-blur-md rounded-2xl border border-white/20 dark:border-gray-700/50 shadow-lg p-6 group hover:-translate-y-1 transition-all duration-300">
+            <div className="absolute -right-6 -top-6 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl group-hover:bg-emerald-500/20 transition-all duration-500"></div>
+            <div className="flex items-center justify-between relative z-10">
               <div>
-                <p className="text-gray-600 text-sm font-medium">Approval Rate</p>
-                <p className="text-3xl font-bold text-green-600 mt-1">{metrics.approvalRate}%</p>
+                <p className="text-gray-500 dark:text-gray-400 text-sm font-bold uppercase tracking-wider">Approval Rate</p>
+                <div className="flex items-baseline gap-1 mt-2">
+                  <p className="text-4xl font-extrabold text-emerald-600 dark:text-emerald-400">{metrics.approvalRate}</p>
+                  <span className="text-xl font-bold text-emerald-600/60 dark:text-emerald-400/60">%</span>
+                </div>
               </div>
-              <FiTrendingUp className="text-green-300" size={40} />
+              <div className="p-3 bg-emerald-500/10 dark:bg-emerald-500/20 rounded-xl text-emerald-600 dark:text-emerald-400">
+                <FiTrendingUp size={32} />
+              </div>
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg shadow p-6">
-            <div className="flex items-center justify-between">
+          <div className="relative overflow-hidden bg-white/60 dark:bg-gray-800/60 backdrop-blur-md rounded-2xl border border-white/20 dark:border-gray-700/50 shadow-lg p-6 group hover:-translate-y-1 transition-all duration-300">
+            <div className="absolute -right-6 -top-6 w-24 h-24 bg-indigo-500/10 rounded-full blur-2xl group-hover:bg-indigo-500/20 transition-all duration-500"></div>
+            <div className="flex items-center justify-between relative z-10">
               <div>
-                <p className="text-gray-600 text-sm font-medium">Avg Duration</p>
-                <p className="text-3xl font-bold text-purple-600 mt-1">{metrics.averageDuration}h</p>
+                <p className="text-gray-500 dark:text-gray-400 text-sm font-bold uppercase tracking-wider">Avg Duration</p>
+                <div className="flex items-baseline gap-1 mt-2">
+                  <p className="text-4xl font-extrabold text-indigo-600 dark:text-indigo-400">{metrics.averageDuration}</p>
+                  <span className="text-xl font-bold text-indigo-600/60 dark:text-indigo-400/60">h</span>
+                </div>
               </div>
-              <FiCalendar className="text-purple-300" size={40} />
+              <div className="p-3 bg-indigo-500/10 dark:bg-indigo-500/20 rounded-xl text-indigo-600 dark:text-indigo-400">
+                <FiCalendar size={32} />
+              </div>
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg shadow p-6">
-            <div className="flex items-center justify-between">
+          <div className="relative overflow-hidden bg-white/60 dark:bg-gray-800/60 backdrop-blur-md rounded-2xl border border-white/20 dark:border-gray-700/50 shadow-lg p-6 group hover:-translate-y-1 transition-all duration-300">
+            <div className="absolute -right-6 -top-6 w-24 h-24 bg-rose-500/10 rounded-full blur-2xl group-hover:bg-rose-500/20 transition-all duration-500"></div>
+            <div className="flex items-center justify-between relative z-10">
               <div>
-                <p className="text-gray-600 text-sm font-medium">Rejected</p>
-                <p className="text-3xl font-bold text-orange-600 mt-1">{metrics.rejected}</p>
+                <p className="text-gray-500 dark:text-gray-400 text-sm font-bold uppercase tracking-wider">Rejected</p>
+                <p className="text-4xl font-extrabold text-rose-600 dark:text-rose-400 mt-2">{metrics.rejected}</p>
               </div>
-              <FiX className="text-orange-300" size={40} />
+              <div className="p-3 bg-rose-500/10 dark:bg-rose-500/20 rounded-xl text-rose-600 dark:text-rose-400">
+                <FiX size={32} />
+              </div>
             </div>
           </div>
         </div>

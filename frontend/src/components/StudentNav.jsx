@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
-import { useAuthStore, useThemeStore } from '../store';
-import { FiLogOut, FiMenu, FiX, FiPlusSquare, FiList, FiMoon, FiSun } from 'react-icons/fi';
+import { useAuthStore, useThemeStore, useSidebarStore } from '../store';
+import { FiLogOut, FiMenu, FiX, FiPlusSquare, FiList, FiMoon, FiSun, FiChevronLeft } from 'react-icons/fi';
 import { useState } from 'react';
 
 const navLinks = [
@@ -12,6 +12,7 @@ export default function StudentNav() {
   const [open, setOpen] = useState(false);
   const { logout, user } = useAuthStore();
   const { dark, toggle: toggleDark } = useThemeStore();
+  const { isOpen, toggle: toggleDesktopSidebar } = useSidebarStore();
   const location = useLocation();
 
   const isActive = (path) => location.pathname === path;
@@ -22,12 +23,21 @@ export default function StudentNav() {
   return (
     <>
       {/* ── Desktop Sidebar ── */}
-      <nav className="hidden md:flex flex-col bg-gradient-to-b from-indigo-600 via-blue-600 to-blue-800 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 text-white w-72 min-h-screen p-6 shadow-2xl transition-all duration-300">
-        <div className="flex items-center gap-3 mb-10">
-          <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center shadow-inner">
-            <span className="text-xl font-bold bg-gradient-to-br from-white to-blue-200 bg-clip-text text-transparent">O</span>
+      <nav className={`hidden md:flex flex-col fixed top-0 left-0 h-screen z-40 overflow-y-auto bg-gradient-to-b from-indigo-600 via-blue-600 to-blue-800 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 text-white w-72 p-6 shadow-2xl transition-all duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="flex items-center justify-between gap-3 mb-10">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center shadow-inner">
+              <span className="text-xl font-bold bg-gradient-to-br from-white to-blue-200 bg-clip-text text-transparent">O</span>
+            </div>
+            <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent">Outpass</h1>
           </div>
-          <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent">Outpass</h1>
+          <button
+            onClick={toggleDesktopSidebar}
+            className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors border border-transparent hover:border-white/20"
+            aria-label="Close sidebar"
+          >
+            <FiChevronLeft size={20} />
+          </button>
         </div>
 
         <div className="mb-8 p-4 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl flex items-center gap-4 shadow-lg transform hover:scale-[1.02] transition-transform duration-300">
@@ -46,8 +56,8 @@ export default function StudentNav() {
               key={link.to}
               to={link.to}
               className={`flex items-center gap-4 px-5 py-3.5 rounded-xl transition-all duration-300 group ${isActive(link.to)
-                  ? 'bg-white/20 border border-white/30 shadow-lg backdrop-blur-md translate-x-1'
-                  : 'hover:bg-white/10 hover:translate-x-1 border border-transparent'
+                ? 'bg-white/20 border border-white/30 shadow-lg backdrop-blur-md translate-x-1'
+                : 'hover:bg-white/10 hover:translate-x-1 border border-transparent'
                 }`}
             >
               <div className={`p-2 rounded-lg transition-colors ${isActive(link.to) ? 'bg-white/20 text-white' : 'bg-transparent text-blue-200 group-hover:text-white group-hover:bg-white/10'}`}>
