@@ -13,24 +13,7 @@ const LoadingSpinner = () => (
   </svg>
 );
 
-const InputField = ({ id, label, icon: Icon, rightElement, ...props }) => (
-  <div className="relative group">
-    <label htmlFor={id} className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 transition-colors group-focus-within:text-indigo-600 dark:group-focus-within:text-indigo-400">{label}</label>
-    <div className="relative items-center">
-      {Icon && <Icon className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-500 transition-colors" size={20} />}
-      <input
-        id={id}
-        {...props}
-        className={`w-full ${Icon ? 'pl-12' : 'px-4'} ${rightElement ? 'pr-12' : 'pr-4'} py-3.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all duration-300 shadow-sm hover:border-gray-300 dark:hover:border-gray-600 dark:text-white placeholder-gray-400`}
-      />
-      {rightElement && (
-        <div className="absolute right-3 top-1/2 -translate-y-1/2">
-          {rightElement}
-        </div>
-      )}
-    </div>
-  </div>
-);
+
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -108,70 +91,78 @@ export default function LoginPage() {
 
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900 via-indigo-950 to-black flex items-center justify-center p-4 sm:p-8 relative overflow-hidden">
-      {/* Decorative blurred background circles */}
-      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-indigo-600/30 rounded-full blur-[100px] pointer-events-none"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-blue-600/20 rounded-full blur-[120px] pointer-events-none"></div>
+    <div className="min-h-screen bg-[#0f172a] flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Background blobs */}
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/20 rounded-full blur-[120px] animate-pulse"></div>
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/20 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '1s' }}></div>
 
-      <div className="bg-white/10 dark:bg-gray-900/60 backdrop-blur-2xl border border-white/20 dark:border-gray-800 rounded-3xl shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] w-full max-w-[440px] p-8 sm:p-10 animate-fade-in-up relative z-10">
-        <div className="flex justify-center mb-6">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-lg transform -rotate-6 hover:rotate-0 transition-transform duration-300">
-            <span className="text-3xl font-bold text-white">O</span>
+      <div className="glass premium-card w-full max-w-[440px] p-8 sm:p-10 relative z-10 animate-slide-up">
+        <div className="text-center mb-10">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-xl shadow-blue-500/20 mb-6 transform hover:scale-110 transition-transform duration-300">
+            <span className="text-4xl font-bold text-white italic">O</span>
           </div>
+          <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
+            Welcome Back
+          </h1>
+          <p className="text-gray-400 mt-3 font-medium">Outpass Tracking System</p>
         </div>
-        <h1 className="text-4xl font-extrabold text-center text-white mb-3 tracking-tight">Outpass</h1>
-        <p className="text-center text-indigo-200/80 mb-8 font-medium">Student Outpass Tracking System</p>
 
         {error && (
-          <div className="bg-red-500/10 border border-red-500/50 backdrop-blur-md text-red-200 p-4 rounded-xl mb-6 text-sm flex gap-3 animate-zoom-in" role="alert">
-            <FiX className="text-red-400 shrink-0 mt-0.5" size={18} />
-            <div>
-              <p className="font-bold text-red-300">Login Failed</p>
-              <p>{error}</p>
+          <div className="bg-rose-500/10 border border-rose-500/20 text-rose-500 p-4 rounded-xl mb-8 flex items-start gap-3 animate-fade-in">
+            <FiX className="shrink-0 mt-0.5" size={18} />
+            <div className="text-sm">
+              <p className="font-bold">Authentication Failed</p>
+              <p className="opacity-90">{error}</p>
             </div>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <InputField
-            id="email"
-            label="Email Address"
-            type="email"
-            icon={FiMail}
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            placeholder="student@university.edu"
-          />
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-gray-500 ml-1">Email Address</label>
+            <div className="relative group">
+              <FiMail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors" size={20} />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                placeholder="student@university.edu"
+                className="input-field"
+                style={{ paddingLeft: '3rem' }}
+              />
+            </div>
+          </div>
 
-          <div>
-            <InputField
-              id="password"
-              label="Password"
-              type={showPassword ? 'text' : 'password'}
-              icon={FiLock}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              placeholder="••••••••"
-              rightElement={
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="p-2 text-gray-400 hover:text-indigo-500 focus:outline-none rounded-lg transition-colors"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                >
-                  {showPassword ? <FiEyeOff size={20} /> : <FiEye size={20} />}
-                </button>
-              }
-            />
-            <div className="flex justify-end mt-3">
+          <div className="space-y-1.5">
+            <div className="flex justify-between items-center px-1">
+              <label className="text-xs font-semibold text-gray-500">Password</label>
               <button
                 type="button"
                 onClick={() => setShowResetModal(true)}
-                className="text-sm font-semibold text-indigo-300 hover:text-white transition-colors hover:underline decoration-indigo-400 decoration-2 underline-offset-4"
+                className="text-xs font-bold text-blue-400 hover:text-blue-300 transition-colors"
+                style={{ cursor: 'pointer' }}
               >
-                Forgot password?
+                Forgot?
+              </button>
+            </div>
+            <div className="relative group">
+              <FiLock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors" size={20} />
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                placeholder="••••••••"
+                className="input-field pr-12"
+                style={{ paddingLeft: '3rem' }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-blue-500 transition-colors"
+              >
+                {showPassword ? <FiEyeOff size={20} /> : <FiEye size={20} />}
               </button>
             </div>
           </div>
@@ -179,17 +170,21 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 focus:ring-4 focus:ring-indigo-500/50 disabled:from-indigo-800 disabled:to-blue-800 disabled:text-gray-400 text-white font-bold py-3.5 rounded-xl transition-all duration-300 shadow-lg hover:shadow-indigo-500/25 flex items-center justify-center mt-8 active:scale-[0.98]"
+            className="w-full btn-primary py-3.5 mt-8 text-lg"
           >
-            {loading ? <LoadingSpinner /> : null}
-            <span className="text-lg tracking-wide">{loading ? 'Authenticating...' : 'Sign In'}</span>
+            {loading ? (
+              <span className="flex items-center justify-center">
+                <LoadingSpinner />
+                Logging in...
+              </span>
+            ) : 'Sign In'}
           </button>
         </form>
 
-        <div className="mt-8 text-center pt-6 border-t border-white/10">
-          <p className="text-indigo-200/80 text-sm font-medium">
-            Don&apos;t have an account?{' '}
-            <a href="/register" className="text-white hover:text-indigo-300 transition-colors font-bold underline decoration-indigo-400/50 hover:decoration-indigo-300 decoration-2 underline-offset-4">
+        <div className="mt-10 text-center pt-8 border-t border-gray-100/10">
+          <p className="text-gray-400 text-sm font-medium">
+            New to the system?{' '}
+            <a href="/register" className="text-blue-400 hover:text-blue-300 font-bold ml-1 transition-colors">
               Create Account
             </a>
           </p>
@@ -198,72 +193,83 @@ export default function LoginPage() {
 
       {/* Password Reset Modal */}
       {showResetModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 transition-opacity">
-          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl shadow-2xl max-w-sm w-full p-8 animate-zoom-in">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50">
+          <div className="glass premium-card max-w-sm w-full p-8 animate-zoom-in border-white/10">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Reset Password</h2>
+              <h2 className="text-2xl font-bold text-white">Reset Password</h2>
               <button
                 onClick={() => setShowResetModal(false)}
-                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
-                aria-label="Close modal"
+                className="p-2 text-gray-400 hover:text-white transition-colors"
               >
                 <FiX size={24} />
               </button>
             </div>
 
             {resetStep === 1 ? (
-              <form onSubmit={handleRequestReset} className="space-y-5">
-                <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">Enter your email and we'll send you a securely signed reset link.</p>
-                <InputField
-                  id="resetEmail"
-                  label="Email"
-                  type="email"
-                  icon={FiMail}
-                  value={resetEmail}
-                  onChange={(e) => setResetEmail(e.target.value)}
-                  required
-                  placeholder="your@email.com"
-                />
+              <form onSubmit={handleRequestReset} className="space-y-6">
+                <p className="text-sm text-gray-400 leading-relaxed italic">Enter your email and we&apos;ll send you a password reset token.</p>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-gray-500 ml-1">Email</label>
+                  <div className="relative group">
+                    <FiMail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors" size={18} />
+                    <input
+                      type="email"
+                      value={resetEmail}
+                      onChange={(e) => setResetEmail(e.target.value)}
+                      required
+                      placeholder="EMAIL ADDRESS"
+                      className="input-field"
+                      style={{ paddingLeft: '3rem' }}
+                    />
+                  </div>
+                </div>
                 <button
                   type="submit"
                   disabled={resetLoading}
-                  className="w-full bg-indigo-600 hover:bg-indigo-700 focus:ring-4 focus:ring-indigo-500/50 disabled:bg-indigo-400 text-white font-bold py-3.5 rounded-xl transition duration-300 flex items-center justify-center mt-4 shadow-md active:scale-[0.98]"
+                  className="w-full btn-primary"
                 >
-                  {resetLoading && <LoadingSpinner />}
                   {resetLoading ? 'Sending...' : 'Send Reset Link'}
                 </button>
               </form>
             ) : (
-              <form onSubmit={handleResetPassword} className="space-y-5">
-                <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-4">Check your email for the token and create your new password below.</p>
-                <InputField
-                  id="resetToken"
-                  label="Reset Token"
-                  type="text"
-                  value={resetToken}
-                  onChange={(e) => setResetToken(e.target.value)}
-                  required
-                  placeholder="Paste secure token here"
-                  className="bg-indigo-50/50 dark:bg-gray-800/50 w-full px-4 py-3.5 border border-indigo-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors"
-                />
-
-                <InputField
-                  id="newPassword"
-                  label="New Password"
-                  type="password"
-                  icon={FiLock}
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  required
-                  minLength={8}
-                  placeholder="••••••••"
-                />
+              <form onSubmit={handleResetPassword} className="space-y-6">
+                <p className="text-sm text-gray-400 leading-relaxed italic pb-2">Check your email for the token and create your new password.</p>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-gray-500 ml-1">Reset Token</label>
+                  <div className="relative group">
+                    <FiKey className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors" size={18} />
+                    <input
+                      type="text"
+                      value={resetToken}
+                      onChange={(e) => setResetToken(e.target.value)}
+                      required
+                      placeholder="Paste token here"
+                      className="input-field"
+                      style={{ paddingLeft: '3rem' }}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-gray-500 ml-1">New Password</label>
+                  <div className="relative group">
+                    <FiLock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors" size={18} />
+                    <input
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      required
+                      minLength={8}
+                      placeholder="PASSWORD"
+                      className="input-field"
+                      style={{ paddingLeft: '3rem' }}
+                    />
+                  </div>
+                </div>
                 <button
                   type="submit"
                   disabled={resetLoading}
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 focus:ring-4 focus:ring-emerald-500/50 disabled:bg-emerald-400 text-white font-bold py-3.5 rounded-xl transition duration-300 flex items-center justify-center mt-4 shadow-md active:scale-[0.98]"
+                  className="w-full btn-primary bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/20"
                 >
-                  {resetLoading && <LoadingSpinner />}
                   {resetLoading ? 'Updating...' : 'Secure Account'}
                 </button>
               </form>

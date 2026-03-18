@@ -23,14 +23,14 @@ class ConnectionManager:
 
     def disconnect(self, user_id: int):
         """Remove a disconnected warden's connection."""
-        if user_id in self.active_connections:
-            del self.active_connections[user_id]
+        self.active_connections.pop(user_id, None)
 
     async def broadcast_location_update(self, location_data: dict):
         """Broadcast location update to all connected wardens."""
         # Store the latest location
         student_id = location_data.get("student_id")
-        self.active_locations[student_id] = location_data
+        if student_id is not None:
+            self.active_locations[int(student_id)] = location_data
 
         # Prepare message
         message = {
@@ -52,7 +52,9 @@ class ConnectionManager:
         for user_id in disconnected_users:
             self.disconnect(user_id)
 
-    async def broadcast_status_update(self, request_id: int, status: str, student_id: int):
+    async def broadcast_status_update(
+        self, request_id: int, status: str, student_id: int
+    ):
         """Broadcast when an outpass status changes."""
         message = {
             "type": "status_update",
@@ -74,7 +76,9 @@ class ConnectionManager:
         for user_id in disconnected_users:
             self.disconnect(user_id)
 
-    async def send_active_students(self, user_id: int, active_students: List[dict]):
+    async def send_active_students(
+        self, user_id: int, active_students: List[dict]
+    ):
         """Send list of all active students to a specific warden connection."""
         if user_id not in self.active_connections:
             return

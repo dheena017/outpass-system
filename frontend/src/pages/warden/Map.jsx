@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, Polyline, useMap } from 'react-leaflet';
-import MarkerClusterGroup from 'react-leaflet-cluster';
+import PropTypes from 'prop-types';
 import L from 'leaflet';
 import { outpassAPI, locationAPI } from '../../api/endpoints';
-import { useAuthStore, useSidebarStore, useThemeStore } from '../../store';
+import { useAuthStore, useThemeStore } from '../../store';
 import toastService from '../../utils/toastService';
 import { getErrorMessage } from '../../utils/errorMessages';
-import { FiMenu, FiSearch, FiFilter } from 'react-icons/fi';
+import { FiMenu, FiSearch } from 'react-icons/fi';
 import 'leaflet/dist/leaflet.css';
 
 
@@ -102,6 +102,10 @@ function FitAllMarkers({ students }) {
   return null;
 }
 
+FitAllMarkers.propTypes = {
+  students: PropTypes.array.isRequired
+};
+
 // Component to programmatically fly to a specific student
 function FlyToStudent({ target }) {
   const map = useMap();
@@ -113,6 +117,10 @@ function FlyToStudent({ target }) {
   return null;
 }
 
+FlyToStudent.propTypes = {
+  target: PropTypes.array
+};
+
 export default function Map() {
   const [activeStudents, setActiveStudents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -122,12 +130,10 @@ export default function Map() {
   const [selectedStudentId, setSelectedStudentId] = useState(null);
   const [flyTarget, setFlyTarget] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
-  const [reconnectAttempts, setReconnectAttempts] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'overdue', 'moving'
   const { user } = useAuthStore();
-  const { isOpen: mainSidebarOpen, toggle: toggleMainSidebar } = useSidebarStore();
   const { dark } = useThemeStore();
   const wsRef = useRef(null);
   const heartbeatIntervalRef = useRef(null);
@@ -195,7 +201,6 @@ export default function Map() {
     }
     setConnectionStatus('reconnecting');
     const delay = getReconnectDelay(reconnectCountRef.current);
-    setReconnectAttempts(reconnectCountRef.current + 1);
     reconnectTimeoutRef.current = setTimeout(() => { connectWebSocket(); }, delay);
   };
 
@@ -219,15 +224,19 @@ export default function Map() {
     const token = localStorage.getItem('token');
     if (!token) return;
     setConnectionStatus('connecting');
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/api/ws/location/${token}`;
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    // When in development (localhost), connect directly to backend port 8001
+    // to bypass potential proxy issues with WebSockets
+    const isLocalhost = window.location.hostname === 'localhost';
+    const wsHost = isLocalhost ? 'localhost:8001' : window.location.host;
+    const pathPrefix = isLocalhost ? '' : '/api';
+    const wsUrl = `${wsProtocol}//${wsHost}${pathPrefix}/ws/location/${token}`;
     try {
       wsRef.current = new WebSocket(wsUrl);
       wsRef.current.onopen = () => {
         setWsConnected(true);
         setConnectionStatus('connected');
         reconnectCountRef.current = 0;
-        setReconnectAttempts(0);
         if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
         heartbeatIntervalRef.current = setInterval(sendHeartbeat, HEARTBEAT_INTERVAL);
       };
@@ -320,234 +329,224 @@ export default function Map() {
   }
 
   return (
-    <div className="flex w-full h-[calc(100vh-4rem)] md:h-screen overflow-hidden bg-gray-50 dark:bg-gray-900">
+    <div className="flex w-full h-[calc(100vh-4rem)] md:h-screen overflow-hidden bg-white dark:bg-[#0F1117] relative">
+      <style>
+        {`
+          @keyframes dash {
+            to { stroke-dashoffset: -20; }
+          }
+          .animated-route {
+            animation: dash 3s linear infinite;
+          }
+          /* Premium Glassmorphic Popup Styling */
+          .custom-glass-popup .leaflet-popup-content-wrapper {
+            background: rgba(255, 255, 255, 0.9) !important;
+            backdrop-filter: blur(20px) !important;
+            border: 1px solid rgba(255, 255, 255, 0.4) !important;
+            border-radius: 24px !important;
+            box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.15) !important;
+            padding: 8px !important;
+          }
+          .dark .custom-glass-popup .leaflet-popup-content-wrapper {
+            background: rgba(15, 17, 23, 0.85) !important;
+            border: 1px solid rgba(255, 255, 255, 0.05) !important;
+            color: white !important;
+          }
+          .custom-glass-popup .leaflet-popup-tip {
+            background: rgba(255, 255, 255, 0.9) !important;
+            backdrop-filter: blur(20px) !important;
+          }
+          .dark .custom-glass-popup .leaflet-popup-tip {
+            background: rgba(15, 17, 23, 0.85) !important;
+          }
+          .custom-glass-popup .leaflet-popup-close-button {
+            color: #9ca3af !important;
+            padding: 12px !important;
+          }
+        `}
+      </style>
 
       {/* ── LEFT SIDEBAR ── */}
       <div
-        className={`flex-shrink-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-r border-gray-200/50 dark:border-gray-700/50 shadow-xl z-20 flex flex-col transition-all duration-300 ease-in-out ${sidebarOpen ? 'w-80 relative' : 'w-12 overflow-hidden'}`}
+        className={`flex-shrink-0 bg-white/70 dark:bg-[#151921]/70 backdrop-blur-3xl border-r border-gray-100 dark:border-white/5 shadow-2xl z-20 flex flex-col transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${sidebarOpen ? 'w-85 relative translate-x-0' : 'w-0 -translate-x-full overflow-hidden'}`}
       >
-        {/* Tracker Header & Main Menu Toggle */}
-        <div className={`flex items-center justify-between h-12 bg-gradient-to-r from-indigo-500 to-blue-600 shadow-md ${sidebarOpen ? 'px-2' : 'flex-col justify-start pt-2 px-0 gap-2'}`}>
-          {/* Hamburger button for Main WardenNav Sidebar */}
-          {!mainSidebarOpen && (
-            <button
-              onClick={toggleMainSidebar}
-              className={`flex-shrink-0 p-1.5 text-white hover:bg-white/20 rounded-lg transition-colors ${!sidebarOpen ? 'mb-2' : ''}`}
-              title="Open Main Menu"
-            >
-              <FiMenu size={20} />
-            </button>
-          )}
+        {/* Tracker Header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-100 dark:border-white/5">
+          <div className="flex flex-col">
+            <div className="flex items-center gap-2 text-indigo-500 font-black text-[10px] uppercase tracking-[0.2em] mb-1">
+              <FiSearch size={12} /> Intelligence
+            </div>
+            <h2 className="text-xl font-black text-gray-900 dark:text-white uppercase tracking-tight">Active Ops</h2>
+          </div>
 
-          {/* Toggle button for Tracking Sidebar */}
           <button
-            onClick={() => setSidebarOpen(o => !o)}
-            className={`flex-1 flex items-center text-white text-xs font-bold tracking-widest uppercase transition-all hover:text-blue-200 ${sidebarOpen ? 'h-full justify-start pl-2' : 'justify-center writing-vertical h-full pb-2'}`}
-            title={sidebarOpen ? 'Collapse panel' : 'Expand panel'}
+            onClick={() => setSidebarOpen(false)}
+            className="p-2 text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors bg-gray-50 dark:bg-white/5 rounded-xl border border-transparent hover:border-gray-100 dark:hover:border-white/10"
           >
-            {sidebarOpen ? '◀ Hide Tracker' : '▶'}
+            <FiMenu size={20} />
           </button>
         </div>
 
-        {sidebarOpen && (
-          <>
-            {/* Connection status */}
-            <div className="px-5 py-4 border-b border-gray-200/50 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-800/50">
-              <div className="flex items-center gap-3">
+        {/* Connection status */}
+        <div className="px-6 py-4">
+          <div className="premium-card glass p-4 bg-gray-50/50 dark:bg-white/5 border-white/20">
+            <div className="flex items-center gap-3">
+              <div className="relative">
                 <div
-                  className={`h-3 w-3 rounded-full flex-shrink-0 shadow-sm ${connectionStatus === 'connected'
-                    ? 'bg-emerald-500 shadow-emerald-500/50'
-                    : connectionStatus === 'reconnecting'
-                      ? 'bg-amber-400 animate-pulse shadow-amber-400/50'
-                      : connectionStatus === 'connecting'
-                        ? 'bg-orange-400 animate-pulse shadow-orange-400/50'
-                        : 'bg-rose-500 shadow-rose-500/50'
+                  className={`h-3 w-3 rounded-full flex-shrink-0 ${connectionStatus === 'connected'
+                    ? 'bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.5)]'
+                    : 'bg-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.5)] animate-pulse'
                     }`}
                 />
-                <span className="text-sm font-bold tracking-wide uppercase text-gray-700 dark:text-gray-300">
-                  {connectionStatus === 'connected'
-                    ? 'Live Tracking'
-                    : connectionStatus === 'reconnecting'
-                      ? `Reconnecting (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`
-                      : connectionStatus === 'connecting'
-                        ? 'Connecting…'
-                        : 'Offline'}
+                {connectionStatus === 'connected' && (
+                  <span className="absolute inset-0 h-3 w-3 rounded-full bg-emerald-500 animate-ping opacity-75"></span>
+                )}
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[10px] font-black tracking-[0.15em] uppercase text-gray-400">System Link</span>
+                <span className="text-xs font-bold text-gray-700 dark:text-gray-200 uppercase tracking-wide">
+                  {connectionStatus === 'connected' ? 'Established • Live' : 'Link Interrupted'}
                 </span>
               </div>
-              {connectionStatus !== 'connected' && (
-                <button
-                  onClick={() => { reconnectCountRef.current = 0; connectWebSocket(); }}
-                  className="mt-3 w-full text-xs font-bold tracking-wider uppercase bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg transition-colors active:scale-95 shadow-sm"
-                >
-                  Reconnect
-                </button>
-              )}
             </div>
+            {connectionStatus !== 'connected' && (
+              <button
+                onClick={() => { reconnectCountRef.current = 0; connectWebSocket(); }}
+                className="mt-4 w-full text-[10px] font-black tracking-widest uppercase bg-rose-500 text-white px-4 py-2.5 rounded-xl transition-all active:scale-95 shadow-lg shadow-rose-500/20"
+              >
+                Re-establish Link
+              </button>
+            )}
+          </div>
+        </div>
 
-            {/* Student count header & Search Filters */}
-            <div className="px-5 py-4 border-b border-gray-200/50 dark:border-gray-700/50 bg-white dark:bg-[#1A1D27]">
-
-              <div className="relative mb-3">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                  <FiSearch size={16} />
-                </div>
-                <input
-                  type="text"
-                  placeholder="Search name or ID..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 bg-gray-50/50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none transition-all placeholder-gray-400 dark:text-gray-200"
-                />
-              </div>
-
-              <div className="flex items-center gap-2 mb-3 overflow-x-auto pb-1 scrollbar-hide">
-                <button
-                  onClick={() => setActiveFilter('all')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${activeFilter === 'all' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
-                >
-                  All
-                </button>
-                <button
-                  onClick={() => setActiveFilter('overdue')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-1.5 ${activeFilter === 'overdue' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
-                >
-                  <span className="w-2 h-2 rounded-full bg-red-500"></span> Overdue
-                </button>
-                <button
-                  onClick={() => setActiveFilter('moving')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-1.5 ${activeFilter === 'moving' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
-                >
-                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span> GPS Active
-                </button>
-              </div>
-
-              <h2 className="text-sm font-extrabold text-gray-800 dark:text-gray-200 tracking-wide flex justify-between items-end">
-                <span>
-                  {studentsWithColor.length === 0
-                    ? 'No students found'
-                    : `${studentsWithColor.length} tracking`}
-                </span>
-                <span className="text-[10px] uppercase text-gray-500 dark:text-gray-400 tracking-wider font-bold">Total: {activeStudents.length}</span>
-              </h2>
+        {/* Search Filters */}
+        <div className="px-6 pb-4 space-y-4">
+          <div className="relative group">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-500 transition-colors">
+              <FiSearch size={16} />
             </div>
+            <input
+              type="text"
+              placeholder="Filter by ID or Name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="input-field pl-11 py-3 bg-gray-50/50"
+            />
+          </div>
 
-            {/* Student list */}
-            <div className="flex-1 overflow-y-auto">
-              {studentsWithColor.length === 0 ? (
-                <div className="p-6 text-center text-gray-400 text-sm">
-                  <p className="text-3xl mb-2">🏠</p>
-                  <p>All students are inside</p>
-                </div>
-              ) : (
-                studentsWithColor.map((student) => {
-                  const isSelected = selectedStudentId === student.student_id;
-                  const hasLocation = student.latitude !== 0 && student.longitude !== 0;
-                  return (
-                    <button
-                      key={student.student_id}
-                      onClick={() => handleSelectStudent(student)}
-                      className={`w-full text-left px-5 py-4 border-b border-gray-100 dark:border-gray-800 hover:bg-white dark:hover:bg-gray-800 transition-all ${isSelected ? 'bg-indigo-50/50 dark:bg-indigo-900/20 border-l-4' : 'bg-transparent border-l-4 border-l-transparent'}`}
-                      style={{ borderLeftColor: isSelected ? student.color : 'transparent' }}
-                    >
-                      <div className="flex items-center gap-3">
-                        {/* Color dot */}
-                        <div
-                          className="h-3 w-3 rounded-full flex-shrink-0 ring-4 ring-white shadow-sm dark:ring-gray-800"
-                          style={{ backgroundColor: student.color }}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-extrabold text-gray-900 dark:text-gray-100 truncate">
-                            {student.student_name}
-                          </p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 font-medium truncate mt-0.5">
-                            ID: {student.student_id}
-                          </p>
-                          <p className="text-xs text-gray-600 dark:text-gray-400 font-medium truncate mt-0.5 flex items-center gap-1">
-                            <span>📍</span> {student.destination}
-                          </p>
-                        </div>
-                        <div className="flex-shrink-0 text-right">
-                          {student.isOverdue ? (
-                            <span className="text-xs font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded">
-                              Overdue
-                            </span>
-                          ) : (
-                            <span className="text-xs text-gray-400">
-                              {new Date(student.expected_return_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          )}
-                          {!hasLocation && (
-                            <p className="text-xs text-amber-500 mt-0.5">No GPS yet</p>
-                          )}
-                        </div>
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
+            {[
+              { id: 'all', label: 'All', color: 'indigo' },
+              { id: 'overdue', label: 'Overdue', color: 'rose' },
+              { id: 'moving', label: 'Moving', color: 'emerald' }
+            ].map((f) => (
+              <button
+                key={f.id}
+                onClick={() => setActiveFilter(f.id)}
+                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap shadow-sm ${activeFilter === f.id
+                  ? `bg-${f.color}-500 text-white shadow-${f.color}-500/25`
+                  : 'bg-white dark:bg-white/5 text-gray-500 border border-gray-100 dark:border-white/5 hover:bg-gray-50 dark:hover:bg-white/10'
+                  }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Student list */}
+        <div className="flex-1 overflow-y-auto px-6 pb-10 space-y-2 custom-scrollbar">
+          {studentsWithColor.length === 0 ? (
+            <div className="py-20 text-center flex flex-col items-center justify-center space-y-4 opacity-50">
+              <div className="w-16 h-16 bg-gray-50 dark:bg-white/5 rounded-full flex items-center justify-center">
+                <span className="text-gray-300 text-2xl font-bold">N/A</span>
+              </div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400">Zero matches in sector</p>
+            </div>
+          ) : (
+            studentsWithColor.map((student) => {
+              const isSelected = selectedStudentId === student.student_id;
+              return (
+                <button
+                  key={student.student_id}
+                  onClick={() => handleSelectStudent(student)}
+                  className={`w-full group/item p-4 rounded-2xl transition-all duration-300 border ${isSelected
+                    ? 'bg-blue-500/10 border-blue-500/30 shadow-xl shadow-blue-500/5'
+                    : 'bg-transparent border-transparent hover:bg-gray-50 dark:hover:bg-white/5'
+                    }`}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="relative">
+                      <div
+                        className="h-12 w-12 rounded-2xl flex items-center justify-center text-white font-black text-sm shadow-lg transition-transform group-hover/item:scale-105"
+                        style={{ backgroundColor: student.color, boxShadow: `0 8px 16px -4px ${student.color}40` }}
+                      >
+                        {student.student_name.slice(0, 2).toUpperCase()}
                       </div>
-
-                      {/* Battery indicator */}
-                      {student.battery_level !== null && student.battery_level !== undefined && (
-                        <div className="mt-3 flex items-center gap-2 bg-gray-50 dark:bg-gray-900/50 p-1.5 rounded-lg border border-gray-100 dark:border-gray-800">
-                          <div className="flex-1 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden shadow-inner">
-                            <div
-                              className={`h-full rounded-full transition-all duration-300 ${student.battery_level > 20 ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'}`}
-                              style={{ width: `${student.battery_level}%` }}
-                            />
-                          </div>
-                          <span className={`text-[10px] font-extrabold w-8 text-right ${student.battery_level <= 20 ? 'text-rose-500' : 'text-gray-500 dark:text-gray-400'}`}>{student.battery_level}%</span>
-                        </div>
+                      {student.isOverdue && (
+                        <div className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 rounded-full border-2 border-white dark:border-gray-900 animate-pulse shadow-sm" />
                       )}
+                    </div>
 
-                      {/* Last seen */}
-                      {student.timestamp && (
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          Updated {new Date(student.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </p>
-                      )}
-                    </button>
-                  );
-                })
-              )}
-            </div>
-          </>
-        )}
+                    <div className="flex-1 min-w-0 text-left">
+                      <h4 className={`text-sm font-black uppercase tracking-tight truncate ${isSelected ? 'text-blue-500' : 'text-gray-900 dark:text-white'}`}>
+                        {student.student_name}
+                      </h4>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{student.student_id}</span>
+                        <span className="text-gray-300 dark:text-white/10">•</span>
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest truncate">{student.destination}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {student.battery_level !== null && (
+                    <div className="mt-4 flex items-center gap-3">
+                      <div className="flex-1 h-1.5 bg-gray-100 dark:bg-white/5 rounded-full overflow-hidden border border-gray-200/50 dark:border-white/5 p-[1px]">
+                        <div
+                          className={`h-full rounded-full transition-all duration-1000 ${student.battery_level <= 20 ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.4)]' : 'bg-emerald-500'}`}
+                          style={{ width: `${student.battery_level}%` }}
+                        />
+                      </div>
+                      <span className={`text-[10px] font-black tracking-widest ${student.battery_level <= 20 ? 'text-rose-500' : 'text-gray-400'}`}>
+                        {student.battery_level}%
+                      </span>
+                    </div>
+                  )}
+
+                  {student.timestamp && (
+                    <div className="mt-2 flex items-center justify-between opacity-0 group-hover/item:opacity-100 transition-opacity">
+                      <span className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">Sync: {new Date(student.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      <span className="text-[9px] font-black text-blue-500 uppercase tracking-[0.2em]">View Trace →</span>
+                    </div>
+                  )}
+                </button>
+              );
+            })
+          )}
+        </div>
       </div>
 
       {/* ── MAP ── */}
-      <div className="flex-1 relative z-10">
-        <style>
-          {`
-            @keyframes dash {
-              to { stroke-dashoffset: -20; }
-            }
-            .animated-route {
-              animation: dash 3s linear infinite;
-            }
-            /* Premium Glassmorphic Popup Styling */
-            .custom-glass-popup .leaflet-popup-content-wrapper {
-              background: rgba(255, 255, 255, 0.8) !important;
-              backdrop-filter: blur(12px) !important;
-              border: 1px solid rgba(255, 255, 255, 0.3) !important;
-              border-radius: 16px !important;
-              box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
-              padding: 4px !important;
-            }
-            .dark .custom-glass-popup .leaflet-popup-content-wrapper {
-              background: rgba(26, 29, 39, 0.8) !important;
-              border: 1px solid rgba(255, 255, 255, 0.1) !important;
-              color: white !important;
-            }
-            .custom-glass-popup .leaflet-popup-tip {
-              background: rgba(255, 255, 255, 0.8) !important;
-              backdrop-filter: blur(12px) !important;
-            }
-            .dark .custom-glass-popup .leaflet-popup-tip {
-              background: rgba(26, 29, 39, 0.8) !important;
-            }
-            .custom-glass-popup .leaflet-popup-close-button {
-              color: #9ca3af !important;
-              padding: 10px !important;
-            }
-          `}
-        </style>
-        <MapContainer center={center} zoom={15} className="w-full h-full relative z-10" zoomControl={false}>
+      <div className="flex-1 relative z-10 w-full h-full">
+        {/* Floating Toggle Button (Appears when sidebar is closed) */}
+        {!sidebarOpen && (
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="absolute top-6 left-6 z-[1000] p-4 premium-card glass shadow-2xl hover:scale-110 active:scale-95 transition-all group/toggle text-indigo-500 border-indigo-500/20"
+          >
+            <FiMenu size={24} className="group-hover/toggle:rotate-180 transition-transform duration-500" />
+          </button>
+        )}
+
+        <MapContainer
+          center={center}
+          zoom={15}
+          style={{ height: '100%', width: '100%' }}
+          className="relative z-10"
+          zoomControl={false}
+        >
           <FitAllMarkers students={studentsWithColor} />
           {flyTarget && <FlyToStudent target={flyTarget} />}
 
@@ -565,121 +564,127 @@ export default function Map() {
             />
           )}
 
-          {/* Render geometry (lines, circles) OUTSIDE the cluster group */}
+          {/* Render geometry (lines, circles) */}
           {studentsWithColor.map((student) => {
             if (student.latitude === 0 && student.longitude === 0) return null;
             const isSelected = selectedStudentId === student.student_id;
 
             return (
               <div key={`geom-${student.student_id}`}>
-                {/* Route polyline with dash animation */}
                 {isSelected && routeHistory[student.outpass_request_id]?.length > 0 && (
                   <Polyline
                     positions={routeHistory[student.outpass_request_id]}
                     pathOptions={{
                       color: student.color,
-                      weight: 5,
-                      opacity: 0.9,
-                      dashArray: '12, 12',
+                      weight: 6,
+                      opacity: 0.8,
+                      dashArray: '15, 15',
                       className: 'animated-route'
                     }}
                   />
                 )}
 
-                {/* Selected Student Pulse / Highlight */}
                 {isSelected && (
                   <Circle
                     center={[student.latitude, student.longitude]}
-                    radius={40}
-                    pathOptions={{ color: student.color, fillColor: student.color, fillOpacity: 0.1, weight: 1.5, dashArray: '4, 4' }}
+                    radius={50}
+                    pathOptions={{
+                      color: student.color,
+                      fillColor: student.color,
+                      fillOpacity: 0.15,
+                      weight: 1,
+                      dashArray: '5, 5'
+                    }}
                   />
                 )}
               </div>
             );
           })}
 
-          <MarkerClusterGroup
-            chunkedLoading
-            maxClusterRadius={40}
-            showCoverageOnHover={false}
-          >
-            {studentsWithColor.map((student) => {
-              if (student.latitude === 0 && student.longitude === 0) return null;
-              const isSelected = selectedStudentId === student.student_id;
-              const icon = createStudentIcon(
-                student.student_name,
-                student.color,
-                isSelected,
-                student.battery_level,
-                student.isOverdue
-              );
+          {/* Render Markers */}
+          {studentsWithColor.map((student) => {
+            if (student.latitude === 0 && student.longitude === 0) return null;
+            const isSelected = selectedStudentId === student.student_id;
+            const icon = createStudentIcon(
+              student.student_name,
+              student.color,
+              isSelected,
+              student.battery_level,
+              student.isOverdue
+            );
 
-              return (
-                <Marker
-                  key={`marker-${student.student_id}`}
-                  position={[student.latitude, student.longitude]}
-                  icon={icon}
-                  eventHandlers={{ click: () => handleSelectStudent(student) }}
-                >
-                  <Popup minWidth={280} className="custom-glass-popup">
-                    <div className="p-1">
-                      <div className="flex items-center gap-3 mb-4 border-b border-gray-200/50 dark:border-gray-700/50 pb-3">
-                        <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-xs font-black text-white shadow-md transform rotate-3" style={{ backgroundColor: student.color }}>
-                          {student.student_name.slice(0, 2).toUpperCase()}
-                        </div>
-                        <div>
-                          <p className="font-black text-base text-gray-800 dark:text-white leading-none mb-1">{student.student_name}</p>
-                          <p className="text-[11px] text-gray-500 font-bold uppercase tracking-widest">ID: {student.student_id}</p>
-                        </div>
+            return (
+              <Marker
+                key={`marker-${student.student_id}`}
+                position={[student.latitude, student.longitude]}
+                icon={icon}
+                eventHandlers={{ click: () => handleSelectStudent(student) }}
+              >
+                <Popup minWidth={300} className="custom-glass-popup">
+                  <div className="p-2 space-y-6">
+                    <div className="flex items-center gap-4 border-b border-gray-100 dark:border-white/5 pb-5">
+                      <div
+                        className="w-14 h-14 rounded-[20px] flex items-center justify-center text-xl font-black text-white shadow-2xl"
+                        style={{ backgroundColor: student.color, boxShadow: `0 12px 24px -6px ${student.color}50` }}
+                      >
+                        {student.student_name.slice(0, 2).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="font-black text-lg text-gray-900 dark:text-white uppercase tracking-tight leading-none mb-1 truncate">{student.student_name}</h3>
+                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-[0.2em] leading-none">Sector ID: {student.student_id}</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="premium-card glass p-3 bg-gray-50/50 dark:bg-white/5 border-white/20">
+                        <p className="text-[9px] text-gray-400 font-black uppercase tracking-widest mb-1.5">Operational Status</p>
+                        {student.isOverdue ? (
+                          <div className="flex items-center gap-1.5 text-rose-500 font-black text-[10px] uppercase">
+                            <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" /> Overdue
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-emerald-500 font-black text-[10px] uppercase">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500" /> Nominal
+                          </div>
+                        )}
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3 mb-4">
-                        <div className="bg-gray-100/50 dark:bg-white/5 p-3 rounded-2xl border border-white/10">
-                          <p className="text-[10px] text-gray-400 font-black uppercase tracking-tight mb-1">Status</p>
-                          {student.isOverdue ? (
-                            <span className="text-[11px] font-black text-red-500 flex items-center gap-1">
-                              <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" /> OVERDUE
-                            </span>
-                          ) : (
-                            <span className="text-[11px] font-black text-emerald-500">ON TRACK</span>
-                          )}
-                        </div>
-                        <div className="bg-gray-100/50 dark:bg-white/5 p-3 rounded-2xl border border-white/10">
-                          <p className="text-[10px] text-gray-400 font-black uppercase tracking-tight mb-1">Battery</p>
-                          <div className="flex items-center gap-2">
-                            <span className={`text-[11px] font-black ${student.battery_level <= 20 ? 'text-red-500' : 'text-gray-700 dark:text-gray-200'}`}>{student.battery_level}%</span>
-                            <div className="flex-1 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                              <div className={`h-full ${student.battery_level <= 20 ? 'bg-red-500' : 'bg-emerald-500'}`} style={{ width: `${student.battery_level}%` }} />
-                            </div>
+                      <div className="premium-card glass p-3 bg-gray-50/50 dark:bg-white/5 border-white/20">
+                        <p className="text-[9px] text-gray-400 font-black uppercase tracking-widest mb-1.5">Power Supply</p>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[10px] font-black ${student.battery_level <= 20 ? 'text-rose-500' : 'text-gray-900 dark:text-white'}`}>{student.battery_level}%</span>
+                          <div className="flex-1 h-1.5 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden border border-white/5 p-[1px]">
+                            <div className={`h-full rounded-full ${student.battery_level <= 20 ? 'bg-rose-500' : 'bg-emerald-500'}`} style={{ width: `${student.battery_level}%` }} />
                           </div>
                         </div>
                       </div>
-
-                      <div className="space-y-2 mb-5 px-1">
-                        <div className="flex items-center justify-between text-[11px] font-bold">
-                          <span className="text-gray-400 uppercase tracking-tighter">Destination</span>
-                          <span className="text-gray-700 dark:text-gray-200">{student.destination}</span>
-                        </div>
-                        <div className="flex items-center justify-between text-[11px] font-bold">
-                          <span className="text-gray-400 uppercase tracking-tighter">Return by</span>
-                          <span className="text-gray-700 dark:text-gray-200">{new Date(student.expected_return_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={() => fetchLocationHistory(student.outpass_request_id, student.student_id)}
-                        className={`w-full py-3 rounded-2xl text-[11px] font-black tracking-widest uppercase transition-all transform active:scale-95 shadow-md border ${isSelected && routeHistory[student.outpass_request_id] ? 'bg-indigo-600 text-white border-indigo-400' : 'bg-gray-800 text-white border-gray-700 hover:bg-gray-900'}`}
-                      >
-                        {isSelected && routeHistory[student.outpass_request_id] ? '✓ Route Active' : 'View Full History'}
-                      </button>
                     </div>
-                  </Popup>
-                </Marker>
-              );
-            })}
-          </MarkerClusterGroup>
+
+                    <div className="space-y-3 px-1">
+                      <div className="flex items-center justify-between text-[11px] font-black">
+                        <span className="text-gray-400 uppercase tracking-widest">Target Dest</span>
+                        <span className="text-gray-900 dark:text-gray-100 uppercase truncate max-w-[150px]">{student.destination}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] font-black">
+                        <span className="text-gray-400 uppercase tracking-widest">Return Alpha</span>
+                        <span className="text-gray-900 dark:text-gray-100">{new Date(student.expected_return_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => fetchLocationHistory(student.outpass_request_id, student.student_id)}
+                      className={`w-full py-4 rounded-2xl text-[10px] font-black tracking-[0.3em] uppercase transition-all shadow-xl border-t active:scale-[0.98] ${isSelected && routeHistory[student.outpass_request_id] ? 'bg-blue-600 text-white border-blue-400 shadow-blue-600/20' : 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-gray-700 hover:bg-black dark:hover:bg-gray-100'}`}
+                    >
+                      {isSelected && routeHistory[student.outpass_request_id] ? 'Tactical Trace Active' : 'Initiate Sector Scan'}
+                    </button>
+                  </div>
+                </Popup>
+              </Marker>
+            );
+          })}
         </MapContainer>
       </div>
     </div>
   );
+
 }

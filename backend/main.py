@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session, joinedload
 from datetime import timedelta, datetime
 from contextlib import asynccontextmanager
 import asyncio
+import os
+import json
 from config import settings
 from database import engine, get_db, SessionLocal
 from models import Base, User, Student, Warden, UserRole, OutpassRequest, OutpassStatus, PushSubscription
@@ -154,6 +156,9 @@ tags_metadata = [
     },
 ]
 
+# Configure root path for Vercel deployment
+root_path = "/api" if os.environ.get("VERCEL") else ""
+
 # Initialize FastAPI app
 api_description = """
 # 🎓 Outpass Tracking System API
@@ -213,6 +218,7 @@ app = FastAPI(
         "name": "MIT License",
         "url": "https://opensource.org/licenses/MIT",
     },
+    root_path=root_path,
     debug=settings.debug,
     lifespan=lifespan,
     openapi_tags=tags_metadata,
@@ -372,7 +378,12 @@ async def reset_password(request: Request, body: PasswordResetConfirm, db: Sessi
         payload = decode_token(body.token)
         if payload.get("type") != "password_reset":
             raise HTTPException(status_code=400, detail="Invalid token type")
-        user_id = int(payload.get("sub"))
+        
+        sub = payload.get("sub")
+        if not sub:
+            raise HTTPException(status_code=400, detail="Invalid token subject")
+            
+        user_id = int(sub)
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid or expired token")
 
@@ -1238,8 +1249,13 @@ async def websocket_endpoint(websocket: WebSocket, token: str, db: Session = Dep
     try:
         from auth import decode_token
         user_data = decode_token(token)
-        user_id = user_data.get("sub")
+        user_id_str = user_data.get("sub")
         role = user_data.get("role")
+        
+        if not user_id_str:
+             raise ValueError("Missing user ID")
+             
+        user_id = int(user_id_str)
     except Exception as e:
         await websocket.close(code=4001, reason="Invalid token")
         return
@@ -1306,7 +1322,6 @@ async def websocket_endpoint(websocket: WebSocket, token: str, db: Session = Dep
             data = await websocket.receive_text()
             # Handle any incoming messages (e.g., ping/pong for keepalive)
             try:
-                import json
                 parsed = json.loads(data)
                 if isinstance(parsed, dict) and parsed.get("type") == "ping":
                     await websocket.send_text(json.dumps({"type": "pong"}))
@@ -1324,7 +1339,6 @@ async def websocket_endpoint(websocket: WebSocket, token: str, db: Session = Dep
 
 # ============= Web Push Notifications =============
 from pywebpush import webpush, WebPushException
-import json
 
 def send_web_push(db: Session, user_id: int, payload: dict):
     """Utility to send web push notifications to a user's registered devices."""

@@ -1,7 +1,4 @@
 import { create } from 'zustand';
-import { toast } from 'react-toastify';
-import { getStatusMessage } from '../utils/statusMessages';
-
 export const useAuthStore = create((set) => ({
   user: null,
   token: null,

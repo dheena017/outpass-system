@@ -55,8 +55,8 @@ npm run dev -- --host 0.0.0.0 --port 5174
 ## 6️⃣ Test the System
 
 ### Login (Demo)
-- **Email**: demo@student.com
-- **Password**: password123
+- **Email**: demo@student.com , warden@example.com
+- **Password**: password123 , password123
 
 Register a new account at: http://localhost:5174/register
 
@@ -71,22 +71,14 @@ Try endpoints directly from the interactive docs!
 ### Student Features
 - ✓ Register account
 - ✓ Login/Logout
-- ✓ Submit outpass request form
-- ✓ View request status (UI ready, backend pending)
+- ✓ Submit outpass request form (Geofencing enabled)
+- ✓ View request status & analytics
+- ✓ Real-time QR pass generation & Scanning
+- ✓ 🛰️ GPS Live Tracking
 
 ### Warden Features
 - ✓ Register account
 - ✓ Login/Logout
-- ✓ View pending requests (UI ready, backend pending)
-- ✓ Approve/reject requests (UI ready, backend pending)
-- ✓ View active students (UI ready, backend pending)
-- ✓ Live tracking map (UI ready, backend pending)
-
-## ⚠️ What's Coming Next
-
-- [ ] Complete backend API endpoints for outpass management
-- [ ] Location tracking endpoints
-- [ ] WebSocket for real-time updates
 - [ ] Mobile app (React Native)
 
 ## 🛠️ Common Commands
