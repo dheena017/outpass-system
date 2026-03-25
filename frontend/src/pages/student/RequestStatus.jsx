@@ -598,7 +598,7 @@ export default function RequestStatus() {
       {/* Location Tracking Sticky Info */}
       {activeRequest && (
         <div className="relative group animate-pulse hover:animate-none">
-          <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
+          <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-1000 group-hover:duration-200 pointer-events-none"></div>
           <LocationTracker
             activeRequestId={activeRequest.id}
             requestData={activeRequest}
