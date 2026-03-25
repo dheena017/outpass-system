@@ -34,9 +34,25 @@ DEBUG=True
 
 ## 4️⃣ Start Backend
 
+
+### Linux/Mac
 ```bash
 cd backend
 source venv/bin/activate
+uvicorn main:app --host 0.0.0.0 --port 8001 --reload
+```
+
+### Windows (PowerShell)
+```powershell
+cd backend
+.\venv\Scripts\Activate.ps1
+uvicorn main:app --host 0.0.0.0 --port 8001 --reload
+```
+
+### Windows (Command Prompt)
+```cmd
+cd backend
+.\venv\Scripts\activate.bat
 uvicorn main:app --host 0.0.0.0 --port 8001 --reload
 ```
 
