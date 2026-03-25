@@ -240,11 +240,12 @@ origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://192.168.68.109:5174",
+    "https://your-frontend-url.vercel.app",
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for dev
+    allow_origins=origins,  # Use specific origins for prod
     allow_credentials=True,
     allow_methods=["*"],  # Allow all methods
     allow_headers=["*"],  # Allow all headers
