@@ -234,21 +234,12 @@ if not settings.debug:
     app.add_middleware(HTTPSRedirectMiddleware)
 
 # Add CORS middleware
-origins = [
-    "http://localhost:5174",
-    "http://127.0.0.1:5174",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://192.168.68.109:5174",
-    "https://your-frontend-url.vercel.app",
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,  # Use specific origins for prod
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],  # Allow all methods
-    allow_headers=["*"],  # Allow all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # ============= Root Redirect =============
