@@ -10,6 +10,13 @@ class Settings(BaseSettings):
     database_url: str = "postgresql://user:password@localhost:5432/outpass_db"
     database_echo: bool = True
 
+    @field_validator('database_url', mode='before')
+    @classmethod
+    def use_vercel_postgres(cls, v):
+        import os
+        # Use POSTGRES_URL if it's available (added by Vercel Postgres)
+        return os.environ.get("POSTGRES_URL", v)
+
     # API
     api_title: str = "Outpass System API"
     api_version: str = "1.0.0"
