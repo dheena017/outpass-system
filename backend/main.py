@@ -10,7 +10,13 @@ from contextlib import asynccontextmanager
 import asyncio
 import os
 import json
-from config import settings
+try:
+    from config import settings
+except ModuleNotFoundError:
+    # Fallback for Vercel or relative import context
+    import sys, os
+    sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+    from config import settings
 from database import engine, get_db, SessionLocal
 from models import Base, User, Student, Warden, UserRole, OutpassRequest, OutpassStatus, PushSubscription
 from auth import get_password_hash, create_access_token, verify_password, get_current_user
@@ -32,10 +38,11 @@ from slowapi.middleware import SlowAPIMiddleware
 from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
+from pydantic import SecretStr
 
 mail_conf = ConnectionConfig(
     MAIL_USERNAME=settings.mail_username,
-    MAIL_PASSWORD=settings.mail_password,
+    MAIL_PASSWORD=SecretStr(str(settings.mail_password)) if hasattr(settings, 'mail_password') else SecretStr("") ,
     MAIL_FROM=settings.mail_from,
     MAIL_PORT=settings.mail_port,
     MAIL_SERVER=settings.mail_server,
@@ -57,9 +64,10 @@ async def send_reset_email(email: str, token: str):
         print(f"{'='*40}\n\n")
         return
 
+    from fastapi_mail import NameEmail
     message = MessageSchema(
         subject="Outpass System: Password Reset",
-        recipients=[email],
+        recipients=[NameEmail(email=email, name=email)],
         body=f"You requested a password reset. Your reset token is:\n\n{token}\n\nPaste this token directly into the app to reset your password. It expires in 15 minutes.",
         subtype=MessageType.plain
     )
@@ -87,13 +95,16 @@ async def auto_expire_outpasses():
             ).all()
 
             for outpass in expired:
-                outpass.status = OutpassStatus.EXPIRED
-                outpass.actual_return_time = now  # mark when we auto-closed it
-                # Broadcast to wardens so the map removes them immediately
+                # Assign enum member if column is Enum, else use .value
+                if isinstance(type(outpass).status.type.enums[0], str):
+                    outpass.status = OutpassStatus.EXPIRED.value
+                else:
+                    outpass.status = OutpassStatus.EXPIRED
+                outpass.actual_return_time = now
                 student = db.query(Student).filter(Student.id == outpass.student_id).first()
                 if student:
                     asyncio.create_task(
-                        manager.broadcast_status_update(outpass.id, "expired", student.student_id)
+                        manager.broadcast_status_update(int(outpass.id), "expired", int(student.id))
                     )
 
             if expired:
@@ -245,10 +256,10 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,  # Use specific origins for prod
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],  # Allow all methods
-    allow_headers=["*"],  # Allow all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # ============= Root Redirect =============
@@ -274,14 +285,14 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     Accepts form data (username/password) instead of JSON.
     """
     user = db.query(User).filter(User.email == form_data.username).first()
-    if not user or not verify_password(form_data.password, user.password_hash):
+    if not user or not verify_password(form_data.password, str(user.password_hash)):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    if not user.is_active:
+    if not bool(user.is_active):
          raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User account is disabled",
@@ -314,13 +325,13 @@ async def login(request: Request, credentials: LoginRequest, db: Session = Depen
     """
     user = db.query(User).filter(User.email == credentials.email).first()
     
-    if not user or not verify_password(credentials.password, user.password_hash):
+    if not user or not verify_password(credentials.password, str(user.password_hash)):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
         )
     
-    if not user.is_active:
+    if not bool(user.is_active):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User account is disabled",
@@ -356,7 +367,7 @@ async def request_password_reset(request: Request, body: PasswordResetRequest, d
     )
     
     # Send the email!
-    await send_reset_email(user.email, reset_token)
+    await send_reset_email(str(user.email), reset_token)
     
     return {
         "message": "If an account exists, a reset link was generated.", 
@@ -537,7 +548,7 @@ async def get_warden_analytics(
     closed_with_times = [
         r for r in all_requests
         if r.status == OutpassStatus.CLOSED
-        and r.actual_return_time and r.departure_time
+        and r.actual_return_time is not None and r.departure_time is not None
     ]
     if closed_with_times:
         durations = [
@@ -563,7 +574,7 @@ async def get_warden_analytics(
         day = (now - timedelta(days=i)).strftime("%b %d")
         daily_counts[day] = 0
     for r in all_requests:
-        if r.created_at:
+        if r.created_at is not None:
             day = r.created_at.strftime("%b %d")
             if day in daily_counts:
                 daily_counts[day] += 1
@@ -572,7 +583,7 @@ async def get_warden_analytics(
     # Peak departure hours (0–23)
     hour_counts = [0] * 24
     for r in all_requests:
-        if r.departure_time:
+        if r.departure_time is not None:
             hour_counts[r.departure_time.hour] += 1
 
     return {
@@ -620,7 +631,12 @@ async def export_outpasses_csv(
     )
 
     if status_filter:
-        query = query.filter(OutpassRequest.status == status_filter)
+        # Try to convert status_filter to OutpassStatus enum if possible
+        try:
+            status_enum = OutpassStatus(status_filter)
+            query = query.filter(OutpassRequest.status == status_enum)
+        except Exception:
+            query = query.filter(OutpassRequest.status == status_filter)
 
     if start_date:
         try:
@@ -653,7 +669,7 @@ async def export_outpasses_csv(
             f"{user.first_name} {user.last_name}",
             student.student_id,
             outpass.destination,
-            outpass.status.value if outpass.status else "",
+            outpass.status.value if hasattr(outpass.status, 'value') else str(outpass.status) if outpass.status else "",
             str(outpass.departure_time or ""),
             str(outpass.expected_return_time or ""),
             str(outpass.actual_return_time or ""),
@@ -684,14 +700,13 @@ async def validate_outpass(request_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Outpass not found")
         
     student = db.query(Student).filter(Student.id == outpass.student_id).first()
-    user = db.query(User).filter(User.id == student.user_id).first()
-    
+    user = db.query(User).filter(User.id == student.user_id).first() if student else None
     return {
         "id": outpass.id,
         "valid": outpass.status in [OutpassStatus.APPROVED, OutpassStatus.ACTIVE],
-        "status": outpass.status,
-        "student_name": f"{user.first_name} {user.last_name}",
-        "student_id": student.student_id,
+        "status": outpass.status.value if hasattr(outpass.status, 'value') else str(outpass.status),
+        "student_name": f"{user.first_name} {user.last_name}" if user else None,
+        "student_id": student.student_id if student else None,
         "destination": outpass.destination,
         "departure_time": outpass.departure_time,
         "expected_return_time": outpass.expected_return_time
@@ -962,11 +977,11 @@ async def update_outpass_status(
         if warden:
             outpass.approved_by = warden.id
         if update_data.warden_notes:
-            outpass.warden_notes = update_data.warden_notes
+            setattr(outpass, "warden_notes", update_data.warden_notes)
     elif new_status == OutpassStatus.REJECTED:
-        outpass.rejection_reason = update_data.rejection_reason
+        setattr(outpass, "rejection_reason", update_data.rejection_reason)
         if update_data.warden_notes:
-            outpass.warden_notes = update_data.warden_notes
+            setattr(outpass, "warden_notes", update_data.warden_notes)
     elif new_status == OutpassStatus.CLOSED:
         outpass.actual_return_time = now_utc
         
