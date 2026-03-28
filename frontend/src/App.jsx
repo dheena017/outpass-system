@@ -10,6 +10,8 @@ import WardenDashboard from './pages/warden/Dashboard';
 import ValidatePass from './pages/ValidatePass';
 import ProtectedRoute from './components/ProtectedRoute';
 import Loading from './components/Loading';
+import NativeScanner from './components/NativeScanner';
+import { initNativeFeatures } from './utils/native';
 import './index.css';
 
 function App() {
@@ -19,6 +21,9 @@ function App() {
   useEffect(() => {
     restoreSession();
     initTheme();
+    
+    // Initialize Capacitor Native Features
+    initNativeFeatures();
   }, [restoreSession, initTheme]);
 
   // Show loading screen while initializing
@@ -28,6 +33,7 @@ function App() {
 
   return (
     <Router>
+      <NativeScanner />
       <ToastContainer
         position="bottom-right"
         autoClose={5000}

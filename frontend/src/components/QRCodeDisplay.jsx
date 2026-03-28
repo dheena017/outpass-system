@@ -7,6 +7,29 @@ export default function QRCodeDisplay({ value, size = 72, label = "SCAN", reques
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isValidating, setIsValidating] = useState(false);
     const [prevStatus, setPrevStatus] = useState(status);
+    const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+    // Persist to local storage for offline access
+    useEffect(() => {
+        if (value && requestId) {
+            localStorage.setItem(`qr_cache_${requestId}`, JSON.stringify({
+                value,
+                status,
+                timestamp: new Date().toISOString()
+            }));
+        }
+    }, [value, requestId, status]);
+
+    useEffect(() => {
+        const handleOnline = () => setIsOffline(false);
+        const handleOffline = () => setIsOffline(true);
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, []);
 
     // Auto-close modal when status changes (indicates successful scan/validation)
     useEffect(() => {
@@ -75,6 +98,12 @@ export default function QRCodeDisplay({ value, size = 72, label = "SCAN", reques
                     <div className="absolute top-0 right-0 p-1.5 bg-emerald-500 text-white rounded-bl-xl transform translate-x-full translate-y-[-100%] transition-all group-hover:translate-x-0 group-hover:translate-y-0 shadow-lg">
                         <FiCheck size={12} strokeWidth={4} />
                     </div>
+
+                    {isOffline && (
+                        <div className="absolute top-2 left-2 px-2 py-0.5 bg-amber-500 rounded-full text-[8px] font-black text-white uppercase tracking-wider animate-pulse z-10">
+                            Offline Cache
+                        </div>
+                    )}
 
                     <p className="text-[9px] text-center text-indigo-600 dark:text-indigo-400 font-black mt-3 pt-2 border-t border-gray-100 dark:border-white/5 w-full tracking-[0.3em] uppercase opacity-70 group-hover:opacity-100 transition-opacity">
                         {label}

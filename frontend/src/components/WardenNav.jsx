@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuthStore, useThemeStore, useSidebarStore } from '../store';
-import { FiLogOut, FiMenu, FiCheckSquare, FiUsers, FiMap, FiBarChart2, FiMoon, FiSun, FiChevronLeft } from 'react-icons/fi';
+import { FiLogOut, FiMenu, FiCheckSquare, FiUsers, FiMap, FiBarChart2, FiMoon, FiSun, FiChevronLeft, FiMaximize } from 'react-icons/fi';
 
 const navLinks = [
   { to: '/warden/approvals', label: 'Approvals', icon: FiCheckSquare },
@@ -57,7 +57,20 @@ export default function WardenNav() {
 
         {/* Navigation Links */}
         <div className="space-y-4 flex-1">
-          <p className="px-4 text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] mb-4">Administration</p>
+          <div className="px-4 flex items-center justify-between mb-4">
+            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">Administration</p>
+          </div>
+          
+          {/* Native Scan Button (Desktop Placeholder / App Action) */}
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('start-scan'))}
+            className="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300 group text-indigo-400 hover:text-white hover:bg-indigo-600/10 border border-indigo-500/10 hover:border-indigo-500/30 bg-indigo-500/5 mb-6"
+          >
+            <div className="p-2 rounded-xl bg-indigo-500/10 group-hover:bg-indigo-500/20 transition-colors">
+              <FiMaximize size={20} />
+            </div>
+            <span className="font-bold text-[15px]">Scan Outpass</span>
+          </button>
           {navLinks.map((link) => {
             const active = isActive(link.to);
             return (
@@ -129,6 +142,20 @@ export default function WardenNav() {
       {/* ── Mobile Bottom Tab Bar ── */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 glass bg-white/70 dark:bg-slate-900/80 backdrop-blur-2xl border-t border-gray-200/50 dark:border-white/5 flex shadow-[0_-10px_30px_-10px_rgba(0,0,0,0.1)] pt-2 pb-safe px-4 overflow-x-auto custom-scrollbar">
         <div className="flex w-full items-center justify-between gap-1">
+          
+          {/* FAB-style Scan Button for Mobile */}
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('start-scan'))}
+            className="flex-none flex flex-col items-center justify-center py-2 relative min-w-[64px] group"
+          >
+            <div className="p-3.5 rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-500/40 -translate-y-1 transition-all active:scale-90 active:shadow-none">
+              <FiMaximize size={24} />
+            </div>
+            <span className="text-[10px] mt-1 font-bold tracking-widest uppercase text-indigo-600 dark:text-indigo-400">Scan</span>
+          </button>
+
+          <div className="h-10 w-px bg-gray-200 dark:bg-white/10 mx-1"></div>
+
           {navLinks.map((link) => {
             const active = isActive(link.to);
             return (
