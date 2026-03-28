@@ -1,6 +1,8 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuthStore, useThemeStore, useSidebarStore } from '../store';
 import { FiLogOut, FiMenu, FiPlusSquare, FiList, FiMoon, FiSun, FiChevronLeft } from 'react-icons/fi';
+import { nativeImpact } from '../utils/native';
+import Logo from './Logo';
 
 const navLinks = [
   { to: '/student/request', label: 'New Request', icon: FiPlusSquare },
@@ -12,6 +14,15 @@ export default function StudentNav() {
   const { dark, toggle: toggleDark } = useThemeStore();
   const { isOpen, toggle: toggleDesktopSidebar } = useSidebarStore();
   const location = useLocation();
+
+  const handleNavClick = async () => {
+    await nativeImpact();
+  };
+
+  const handleLogout = async () => {
+    await nativeImpact();
+    logout();
+  };
 
   const isActive = (path) => location.pathname === path;
 
@@ -25,14 +36,12 @@ export default function StudentNav() {
 
         {/* Brand */}
         <div className="flex items-center justify-between mb-10 px-2 mt-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20 rotate-3">
-              <span className="text-2xl font-bold text-white italic">O</span>
-            </div>
-            <h1 className="text-2xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">Outpass</h1>
-          </div>
+          <Logo size="md" />
           <button
-            onClick={toggleDesktopSidebar}
+            onClick={() => {
+              toggleDesktopSidebar();
+              handleNavClick();
+            }}
             className="w-10 h-10 flex items-center justify-center bg-white/5 hover:bg-white/10 rounded-xl transition-all hover:scale-105 active:scale-95 border border-white/5"
           >
             <FiChevronLeft size={20} className="text-gray-400" />
@@ -62,6 +71,7 @@ export default function StudentNav() {
               <Link
                 key={link.to}
                 to={link.to}
+                onClick={handleNavClick}
                 className={`flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300 group ${active
                   ? 'bg-blue-600 shadow-xl shadow-blue-600/20 text-white'
                   : 'text-gray-400 hover:text-white hover:bg-white/5'
@@ -80,7 +90,10 @@ export default function StudentNav() {
         {/* Bottom Actions */}
         <div className="space-y-4 mt-10 pt-8 border-t border-white/5">
           <button
-            onClick={toggleDark}
+            onClick={() => {
+              toggleDark();
+              handleNavClick();
+            }}
             className="w-full flex items-center justify-between px-5 py-4 bg-white/5 hover:bg-white/10 border border-white/5 rounded-2xl transition-all group"
           >
             <div className="flex items-center gap-3">
@@ -93,7 +106,7 @@ export default function StudentNav() {
           </button>
 
           <button
-            onClick={logout}
+            onClick={handleLogout}
             className="w-full flex items-center gap-4 px-5 py-4 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white border border-rose-500/20 rounded-2xl transition-all font-bold shadow-lg shadow-rose-500/0 hover:shadow-rose-500/20 group"
           >
             <FiLogOut size={20} className="transition-transform group-hover:translate-x-1" />
@@ -103,17 +116,15 @@ export default function StudentNav() {
       </nav>
 
       {/* ── Mobile Top Bar ── */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-50 glass bg-slate-900/80 backdrop-blur-xl border-b border-white/5 h-16 flex items-center justify-between px-6">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20 rotate-3">
-            <span className="text-xl font-bold text-white italic">O</span>
-          </div>
-          <h1 className="text-xl font-bold tracking-tight text-white">Outpass</h1>
-        </div>
+      <div className="md:hidden fixed top-0 left-0 right-0 z-50 glass bg-slate-900/80 backdrop-blur-xl border-b border-white/5 h-16 flex items-center justify-between px-6 px-safe pt-safe">
+        <Logo size="sm" />
 
         <div className="flex items-center gap-4">
           <button
-            onClick={toggleDark}
+            onClick={() => {
+              toggleDark();
+              handleNavClick();
+            }}
             className="p-2.5 bg-white/5 active:bg-white/10 rounded-xl transition-all"
           >
             {dark ? <FiSun size={18} className="text-amber-400" /> : <FiMoon size={18} className="text-indigo-400" />}
@@ -125,13 +136,14 @@ export default function StudentNav() {
       </div>
 
       {/* ── Mobile Bottom Tab Bar ── */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 glass bg-white/70 dark:bg-slate-900/80 backdrop-blur-2xl border-t border-gray-200/50 dark:border-white/5 flex shadow-[0_-10px_30px_-10px_rgba(0,0,0,0.1)] pt-2 pb-safe px-4">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 glass bg-white/70 dark:bg-slate-900/80 backdrop-blur-2xl border-t border-gray-200/50 dark:border-white/5 flex shadow-[0_-10px_30px_-10px_rgba(0,0,0,0.1)] pt-2 pb-safe px-4 px-safe">
         {navLinks.map((link) => {
           const active = isActive(link.to);
           return (
             <Link
               key={link.to}
               to={link.to}
+              onClick={handleNavClick}
               className="flex-1 flex flex-col items-center justify-center py-2 relative group"
             >
               <div className={`p-3 rounded-2xl transition-all duration-300 ${active

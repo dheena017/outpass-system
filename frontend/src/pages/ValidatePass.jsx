@@ -3,12 +3,18 @@ import { useParams, Link } from 'react-router-dom';
 import { outpassAPI } from '../api/endpoints';
 import { FiCheckCircle, FiXCircle, FiClock, FiMapPin, FiUser, FiInfo } from 'react-icons/fi';
 import Loading from '../components/Loading';
+import Logo from '../components/Logo';
+import { nativeImpact } from '../utils/native';
 
 export default function ValidatePass() {
     const { id } = useParams();
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+
+    const handleBack = async () => {
+        await nativeImpact();
+    };
 
     useEffect(() => {
         const fetchValidation = async () => {
@@ -28,12 +34,12 @@ export default function ValidatePass() {
 
     if (error) {
         return (
-            <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
-                <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8 text-center border-t-8 border-red-500">
-                    <FiXCircle className="mx-auto text-red-500 mb-4" size={64} />
-                    <h1 className="text-3xl font-black text-gray-800 mb-2">INVALID</h1>
-                    <p className="text-gray-600 mb-6">{error}</p>
-                    <Link to="/" className="text-blue-600 hover:text-blue-800 font-semibold underline">
+            <div className="min-h-screen bg-[#0f172a] flex flex-col items-center justify-center p-4">
+                <div className="glass premium-card w-full max-w-md p-8 text-center border-t-8 border-rose-500 shadow-rose-500/20">
+                    <FiXCircle className="mx-auto text-rose-500 mb-4" size={64} />
+                    <h1 className="text-3xl font-black text-white mb-2 uppercase">INVALID</h1>
+                    <p className="text-gray-400 mb-6">{error}</p>
+                    <Link to="/" onClick={handleBack} className="w-full btn-primary bg-rose-600 hover:bg-rose-700">
                         Return to System
                     </Link>
                 </div>
@@ -141,15 +147,15 @@ export default function ValidatePass() {
 
                 {/* Footer Action */}
                 <div className="p-8 pt-0 mt-4">
-                    <Link to="/" className="w-full btn-secondary text-gray-400 hover:text-white py-4 flex items-center justify-center gap-2 group">
+                    <Link to="/" onClick={handleBack} className="w-full btn-secondary text-gray-400 hover:text-white py-4 flex items-center justify-center gap-2 group">
                         <span className="group-hover:-translate-x-1 transition-transform">←</span>
                         Return to Control Deck
                     </Link>
                 </div>
             </div>
 
-            <div className="mt-8 flex flex-col items-center gap-2 animate-pulse">
-                <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.5rem]">Secure Validator v2.0</p>
+            <div className="mt-8 flex flex-col items-center gap-4">
+                <Logo size="sm" />
                 <div className="h-1 w-32 bg-white/5 rounded-full overflow-hidden">
                     <div className="h-full bg-blue-500/50 w-1/2 animate-[loading_2s_infinite]"></div>
                 </div>

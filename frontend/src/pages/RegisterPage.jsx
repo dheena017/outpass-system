@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authAPI } from '../api/endpoints';
 import { getStatusMessage } from '../utils/statusMessages';
-import { FiUser, FiMail, FiLock, FiEye, FiEyeOff, FiAtSign, FiPhone, FiHash } from 'react-icons/fi';
+import { FiUser, FiMail, FiLock, FiEye, FiEyeOff, FiAtSign, FiPhone, FiHash, FiArrowLeft } from 'react-icons/fi';
+import Logo from '../components/Logo';
+import { nativeImpact } from '../utils/native';
 
 export default function RegisterPage() {
   const [userType, setUserType] = useState('student');
@@ -42,6 +44,7 @@ export default function RegisterPage() {
     }
 
     setLoading(true);
+    await nativeImpact();
 
     try {
       if (userType === 'student') {
@@ -84,7 +87,8 @@ export default function RegisterPage() {
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/20 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '1s' }}></div>
 
       <div className="glass premium-card w-full max-w-md p-8 relative z-10 animate-slide-up">
-        <div className="text-center mb-8">
+        <div className="text-center mb-8 flex flex-col items-center">
+          <Logo size="md" className="mb-6" />
           <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-400">
             Create Account
           </h1>

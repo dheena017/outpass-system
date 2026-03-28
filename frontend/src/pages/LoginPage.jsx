@@ -5,6 +5,8 @@ import { authAPI } from '../api/endpoints';
 import { FiMail, FiLock, FiEye, FiEyeOff, FiX } from 'react-icons/fi';
 import { getStatusMessage } from '../utils/statusMessages';
 import toastService from '../utils/toastService';
+import Logo from '../components/Logo';
+import { nativeImpact } from '../utils/native';
 
 const LoadingSpinner = () => (
   <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -38,6 +40,7 @@ export default function LoginPage() {
     if (loading) return;
     setError('');
     setLoading(true);
+    await nativeImpact();
 
     try {
       const response = await authAPI.login(email, password);
@@ -98,9 +101,7 @@ export default function LoginPage() {
 
       <div className="glass premium-card w-full max-w-[440px] p-8 sm:p-10 relative z-10 animate-slide-up">
         <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-xl shadow-blue-500/20 mb-6 transform hover:scale-110 transition-transform duration-300">
-            <span className="text-4xl font-bold text-white italic">O</span>
-          </div>
+          <Logo size="lg" className="justify-center mb-6" />
           <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
             Welcome Back
           </h1>

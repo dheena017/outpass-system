@@ -17,6 +17,10 @@
   --input: 214.3 31.8% 91.4%;
   --ring: 221.2 83.2% 53.3%;
   --radius: 0.75rem;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
 }
 
 .dark {
@@ -162,4 +166,34 @@ body {
 
 .animate-loading {
   animation: loading 2s ease-in-out infinite;
+}
+
+/* ── Safe Area Utilities ── */
+.pb-safe {
+  padding-bottom: var(--safe-bottom);
+}
+
+.pt-safe {
+  padding-top: var(--safe-top);
+}
+
+.pl-safe {
+  padding-left: var(--safe-left);
+}
+
+.pr-safe {
+  padding-right: var(--safe-right);
+}
+
+.mb-safe {
+  margin-bottom: var(--safe-bottom);
+}
+
+.mt-safe {
+  margin-top: var(--safe-top);
+}
+
+/* ── Native Touch Experience ── */
+.active-press {
+  @apply transition-transform active:scale-95 duration-200;
 }
