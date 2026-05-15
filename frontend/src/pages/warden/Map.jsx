@@ -7,7 +7,6 @@ import { useAuthStore, useThemeStore } from '../../store';
 import toastService from '../../utils/toastService';
 import { getErrorMessage } from '../../utils/errorMessages';
 import { FiMenu, FiSearch } from 'react-icons/fi';
-import 'leaflet/dist/leaflet.css';
 
 
 
