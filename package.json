@@ -1,0 +1,10 @@
+{
+  "name": "outpass-system",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "frontend": "npm run dev --prefix frontend",
+    "backend": "python run_backend.py",
+    "dev": "python run_dev.py"
+  }
+}

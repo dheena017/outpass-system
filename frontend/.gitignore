@@ -1,6 +1,11 @@
-.node_modules
+node_modules
 dist
+dev-dist
+.vite
 .env.local
 .env
 *.log
 .DS_Store
+*.txt
+eslint_report.json
+
